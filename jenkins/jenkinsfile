@@ -1,0 +1,114 @@
+@Library(value='pipeline-utils', changelog=false)_
+
+GIT_COMMIT_HASH = ""
+GIT_COMMIT_URL = ""
+
+GEN3_IP = "192.168.1.10"  // IP of the GEN 3
+
+pipeline {
+    agent none
+    options {
+        disableConcurrentBuilds()
+        timestamps()
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    GIT_COMMIT_HASH = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+                    GIT_COMMIT_URL = scm.browser.repoUrl
+                }
+            }
+        }
+        stage('Configure JFrog CLI') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'artifactory-python-creds',
+                                                  usernameVariable: 'JF_USER',
+                                                  passwordVariable: 'JF_PASSWORD')]) {
+                    sh '''
+                        # Prefer the agent's provisioned ~/.jfrog, as on the ubuntu24.04 agents
+                        # (see the agent prerequisites at the top of this file). 'jf c show'
+                        # exits 0 either way, so an empty output is what signals "no config".
+                        if [ -n "$(jf c show 2>/dev/null)" ]; then
+                            echo "Using the JFrog CLI configuration already present on this agent."
+                            jf c show
+                        else
+                            echo "No JFrog CLI configuration on this agent - falling back to the Jenkins credential."
+                            jf c add kinova --url="https://artifactory.kinovaapps.com" --user="$JF_USER" --password="$JF_PASSWORD" --interactive=false --overwrite
+                            jf c use kinova
+                        fi
+                    '''
+                }
+            }
+        }
+        stage('Fetch the Latest GEN3 SWU') {
+            steps {
+                dir("${WORKSPACE}") {
+                    script {
+
+                        def info = sh(returnStdout: true, script: """
+                            jf rt s --sort-by created --sort-order desc --fail-no-op --limit 1 --props branch_name=development \
+                            generic-local-build/kortex/products/gen3/development/*/Gen3*.swu
+                        """).trim().split("\n")
+
+                        env.GEN3_VERSION = info[1]
+                        echo "GEN3 Version: '${env.GEN3_VERSION}'"
+
+                    }
+                }
+            }
+        }
+        stage('Fetch the Latest Kortex') {
+            steps {
+                dir("${WORKSPACE}") {
+                    script {
+
+                        def info = sh(returnStdout: true, script: """
+                            jf rt dl "generic-public/kortex/API/*/kortex_api-*.post3-py3-none-any.whl" --sort-by=created --sort-order=desc --limit=1
+                        """).trim().split("\n")
+
+                        env.KORTEX_VERSION = info[1]
+                        echo "Kortex Version: '${env.KORTEX_VERSION}'"
+
+                        python3 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
+                    }
+                }
+            }
+        }
+        stage('Run Automated Validation') {
+            steps {
+                // Running the Pytest command
+                script {
+                    
+                }
+            }
+        }
+    }
+    post {
+        always {
+            // Current build description
+            script {
+                if (GIT_COMMIT_HASH) {
+                    currentBuild.description = "Commit: <a href='${GIT_COMMIT_URL}/commits/${GIT_COMMIT_HASH}'>${GIT_COMMIT_HASH}</a><br />"
+                }
+                if (env.SUT_RELEASE) {
+                    currentBuild.description = (currentBuild.description ?: "") + "SUT: ${params.SW_UNDER_TEST} Version: ${env.SUT_RELEASE} (${env.SUT_BUILD})<br />"
+                }
+            }
+
+            // Graphic display
+            junit testResults: 'validation/results.xml', skipPublishingChecks: true, skipMarkingBuildUnstable: true
+
+        }
+        success {
+            echo 'The entire pipeline was successful'
+        }
+        failure {
+            echo 'The pipeline failed'
+        }
+        cleanup {
+            cleanWs()
+        }
+    }
+}
