@@ -66,7 +66,7 @@ pipeline {
                 dir("${WORKSPACE}") {
                     script {
 
-                        def info = sh(returnStdout: true, script: """
+                        def rawJson = sh(returnStdout: true, script: """
                             jf rt s --sort-by created --sort-order desc --fail-no-op --limit 1 --props branch_name=development \
                             generic-local-build/kortex/products/gen3/development/*/Gen3*.swu
                         """).trim()
@@ -94,7 +94,7 @@ pipeline {
                 dir("${WORKSPACE}") {
                     script {
 
-                        def info = sh(returnStdout: true, script: """
+                        def rawJson = sh(returnStdout: true, script: """
                             jf rt dl "generic-public/kortex/API/*/kortex_api-*.post3-py3-none-any.whl" --sort-by=created --sort-order=desc --limit=1
                         """).trim()
 
