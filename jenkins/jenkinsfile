@@ -42,6 +42,25 @@ pipeline {
                 }
             }
         }
+        stage('Python Environement Set Up') {
+            steps {
+                sh """
+                    sudo apt update
+                    sudo apt install software-properties-common -y
+
+                    sudo add-apt-repository ppa:deadsnakes/ppa -y
+                    sudo apt update
+
+                    sudo apt install python3.9 python3.9-venv python3.9-dev -y
+
+                    python3.9 --version
+
+                    python3.9 -m venv .venv
+
+                    .venv/bin/pip install -r rmodbus/examples/requirements.txt
+                """
+            }
+        }
         stage('Fetch the Latest GEN3 SWU') {
             steps {
                 dir("${WORKSPACE}") {
@@ -71,7 +90,9 @@ pipeline {
                         env.KORTEX_VERSION = info[1]
                         echo "Kortex Version: '${env.KORTEX_VERSION}'"
 
-                        python3 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
+                        sh """
+                        python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
+                        """
                     }
                 }
             }
@@ -80,7 +101,12 @@ pipeline {
             steps {
                 // Running the Pytest command
                 script {
+                    // Python
+                    sh """
+                        python3.9 api_python/examples/000-Getting_Started/01-api_creation.py
+                    """
                     
+                    // C++
                 }
             }
         }
