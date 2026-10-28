@@ -101,7 +101,7 @@ pipeline {
                         def buildNumber = sh(returnStdout: true, script: """ ls kortex/API """)
 
                         if (buildNumber && buildNumber.size() > 0) {
-                            env.KORTEX_VERSION = buildNumber.toString()
+                            env.KORTEX_VERSION = buildNumber.toString().trim()
                             echo "KORTEX_VERSION assigned: ${env.KORTEX_VERSION}"
                         } else {
                             error("No artifacts found matching the query!")
