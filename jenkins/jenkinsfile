@@ -6,7 +6,7 @@ GIT_COMMIT_URL = ""
 GEN3_IP = "192.168.1.10"  // IP of the GEN 3
 
 pipeline {
-    agent none
+    agent { label "ubuntu24.04" }
     options {
         disableConcurrentBuilds()
         timestamps()
