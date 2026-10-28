@@ -108,7 +108,7 @@ pipeline {
                         }
 
                         sh """
-                            python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
+                            python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/*.whl
                         """
                     }
                 }
