@@ -69,11 +69,22 @@ pipeline {
                         def info = sh(returnStdout: true, script: """
                             jf rt s --sort-by created --sort-order desc --fail-no-op --limit 1 --props branch_name=development \
                             generic-local-build/kortex/products/gen3/development/*/Gen3*.swu
-                        """).trim().split("\n")
+                        """).trim()
 
-                        env.GEN3_VERSION = info[1]
-                        echo "GEN3 Version: '${env.GEN3_VERSION}'"
+                        def info = readJSON text: rawJson
 
+                        // In JFrog CLI, properties are stored under props['build.number']
+                        if (info && info.size() > 0) {
+                            def artifact = info[0]
+
+                            // If 'build.number' is stored in props:
+                            def buildNumber = artifact.props?.'build.number'?.get(0) ?: artifact['build.number']
+
+                            env.GEN3_VERSION = buildNumber.toString()
+                            echo "GEN3_VERSION assigned: ${env.GEN3_VERSION}"
+                        } else {
+                            error("No artifacts found matching the query!")
+                        }
                     }
                 }
             }
@@ -85,10 +96,22 @@ pipeline {
 
                         def info = sh(returnStdout: true, script: """
                             jf rt dl "generic-public/kortex/API/*/kortex_api-*.post3-py3-none-any.whl" --sort-by=created --sort-order=desc --limit=1
-                        """).trim().split("\n")
+                        """).trim()
 
-                        env.KORTEX_VERSION = info[1]
-                        echo "Kortex Version: '${env.KORTEX_VERSION}'"
+                        def info = readJSON text: rawJson
+
+                        // In JFrog CLI, properties are stored under props['build.number']
+                        if (info && info.size() > 0) {
+                            def artifact = info[0]
+
+                            // If 'build.number' is stored in props:
+                            def buildNumber = artifact.props?.'build.number'?.get(0) ?: artifact['build.number']
+
+                            env.KORTEX_VERSION = buildNumber.toString()
+                            echo "Kortex Version: '${env.KORTEX_VERSION}'"
+                        } else {
+                            error("No artifacts found matching the query!")
+                        }
 
                         sh """
                         python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
