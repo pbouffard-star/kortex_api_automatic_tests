@@ -94,27 +94,21 @@ pipeline {
                 dir("${WORKSPACE}") {
                     script {
 
-                        def rawJson = sh(returnStdout: true, script: """
+                        sh """
                             jf rt dl "generic-public/kortex/API/*/kortex_api-*.post3-py3-none-any.whl" --sort-by=created --sort-order=desc --limit=1
-                        """).trim()
+                        """
 
-                        def info = readJSON text: rawJson
+                        def buildNumber = sh(returnStdout: true, script: """ ls kortex/API """)
 
-                        // In JFrog CLI, properties are stored under props['build.number']
-                        if (info && info.size() > 0) {
-                            def artifact = info[0]
-
-                            // If 'build.number' is stored in props:
-                            def buildNumber = artifact.props?.'build.number'?.get(0) ?: artifact['build.number']
-
+                        if (buildNumber && buildNumber.size() > 0) {
                             env.KORTEX_VERSION = buildNumber.toString()
-                            echo "Kortex Version: '${env.KORTEX_VERSION}'"
+                            echo "KORTEX_VERSION assigned: ${env.KORTEX_VERSION}"
                         } else {
                             error("No artifacts found matching the query!")
                         }
 
                         sh """
-                        python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
+                            python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/kortex_api-${env.KORTEX_VERSION}.post3-py3-none-any.whl
                         """
                     }
                 }
