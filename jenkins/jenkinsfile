@@ -108,6 +108,8 @@ pipeline {
                         }
 
                         sh """
+                            echo "=== Contents of kortex/API/${env.KORTEX_VERSION} ==="
+                            ls -la "kortex/API/${env.KORTEX_VERSION}" || true
                             python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/*.whl
                         """
                     }
