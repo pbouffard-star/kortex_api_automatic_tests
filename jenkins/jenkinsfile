@@ -57,7 +57,7 @@ pipeline {
 
                     python3.9 -m venv .venv
 
-                    .venv/bin/pip install -r rmodbus/examples/requirements.txt
+                    .venv/bin/pip install -r modbus/examples/requirements.txt
                 """
             }
         }
