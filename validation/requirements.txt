@@ -1,0 +1,23 @@
+# Python Validation
+openpyxl
+pandas
+pytest
+pytest-json-report
+pytest-html
+pytest-bdd
+pytest-cov
+pytest-csv
+pytest-cpp
+selenium
+paramiko
+Requests
+cov-core
+tox
+behave
+
+# Linting tools
+flake8==6.1.0  # Linting tool.
+flake8-isort==6.1.1  # Flake8 plugin for import errors.
+Flake8-pyproject==1.2.3  # Flake8 plugin to allow the usage of .toml as config file.
+isort==5.10.1  # Import sorting tool.
+pylint==3.0.1  # Linting tool.
