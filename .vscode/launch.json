@@ -1,0 +1,34 @@
+{
+    "version": "0.1.0",
+    "inputs": [
+        {
+            "id": "testFilter",
+            "type": "promptString",
+            "description": "Tag filter (e.g. SWR-123)",
+            "default": "python"
+        }
+    ],
+    "configurations": [
+        {
+            "name": "Run Automated Validation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "scenarios.py",
+                "-v",
+                "-k",
+                "${input:testFilter}",
+                "--json-report",
+                "--json-report-file=./TestMetrics/json/TestReport.json",
+                "--html=report.html",
+                "--self-contained-html",
+                "--junitxml=results.xml",
+                "--log-cli-level=WARNING"
+            ],
+            "cwd": "${workspaceFolder}/validation",
+            "python": "${userHome}/.pyenv/versions/kts-robot-3.9/bin/python",
+            "justMyCode": false
+        }
+    ]
+}

@@ -1,5 +1,5 @@
 # Settings
-.vscode/
+.vscode/settings.json
 
 # Firmware
 .swu
@@ -14,3 +14,9 @@ api_cpp/examples/build*
 __pycache__/
 api_cpp/gen3_lite_leader_follower_example/build/
 api_cpp/gen3_lite_leader_follower_example/kortex_api/
+
+# Log of result files
+validation/TestMetrics/*
+validation/pytest.log
+validation/report.html
+validation/results.xml
