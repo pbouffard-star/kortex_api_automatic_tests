@@ -20,3 +20,6 @@ validation/TestMetrics/*
 validation/pytest.log
 validation/report.html
 validation/results.xml
+
+# Environment
+.python-version
