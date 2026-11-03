@@ -1,15 +1,8 @@
 import subprocess
-import pytest
 import re
 from pytest_bdd import when, then, parsers
 
 python_ex_file_path = "../api_python/examples"
-
-
-@pytest.fixture
-def execution_context():
-    """A fixture to pass the execution output, error and status to an other step. """
-    return {"stdout": "", "stderr": "", "status": "not_run"}
 
 
 @when(parsers.parse("running the python '{file_name}' Kortex API example"))
@@ -18,7 +11,8 @@ def python_run(file_name: str, execution_context):
 
         *Args*:
             - file_name (string): Path and file name of the python file.
-            - execution_context (fixture): A fixture that contains the execution output, error and status
+            - execution_context (fixture): A fixture that contains the execution output, 
+            error and status
     '''
     path = f'{python_ex_file_path}/{file_name}'
     try:
@@ -44,7 +38,8 @@ def checks_api_execution_status(results_tracker, execution_context):
 
         *Args*:
             - results_tracker (fixture): Generic result comparaison fixture.
-            - execution_context (fixture): A fixture that contains the execution output, error and status
+            - execution_context (fixture): A fixture that contains the execution output, 
+            error and status
     '''
     results_tracker[0]["param"] = "Output Message"
     results_tracker[0]["expected"] = "success"
@@ -57,7 +52,8 @@ def assert_output_of_api_creation(results_tracker, execution_context, datatable)
 
         *Args*:
             - results_tracker (fixture): Generic result comparaison fixture.
-            - execution_context (fixture): A fixture that contains the execution output, error and status
+            - execution_context (fixture): A fixture that contains the execution output, 
+            error and status
             - datatable (string): Content of the output parameters.
     '''
     pattern = r"Creating\ssession\sfor\scommunication\\nSession\s(\w+)\\ndevice_type:\s(\w+)\\n\\nactive_state:\s(\w+)\\nconnection\s\{\\n\s+connection_identifier:\s(\d*)\\n\}\\n\\n"

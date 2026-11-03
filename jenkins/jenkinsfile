@@ -148,6 +148,10 @@ pipeline {
                     """
                     
                     // C++
+                    sh """
+                        cd api_cpp/examples && cmake -B build && cmake --build build
+                        python3.9 api_python/examples/000-Getting_Started/01-api_creation.py
+                    """
                 }
             }
         }

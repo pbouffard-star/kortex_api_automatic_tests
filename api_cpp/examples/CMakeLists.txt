@@ -180,7 +180,7 @@ else() # Not using Conan
   if(DOWNLOAD_API)
     if(UNIX)
       execute_process(COMMAND ./download_kortex_api.sh ${KORTEX_SUB_DIR}
-        WORKING_DIRECTORY ../scripts
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/scripts
         RESULT_VARIABLE DOWNLOAD_API_RESULT
         OUTPUT_VARIABLE DOWNLOAD_API_OUTPUT)
       if(NOT DOWNLOAD_API_RESULT EQUAL 0)
@@ -189,7 +189,7 @@ else() # Not using Conan
       endif()
     elseif(WIN32)
       execute_process(COMMAND ./download_kortex_api.bat ${KORTEX_SUB_DIR}
-        WORKING_DIRECTORY ../scripts
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/scripts
         RESULT_VARIABLE DOWNLOAD_API_RESULT
         OUTPUT_VARIABLE DOWNLOAD_API_OUTPUT)
       if(NOT DOWNLOAD_API_RESULT EQUAL 0)

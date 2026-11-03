@@ -35,6 +35,12 @@ def results_tracker():
     return TrackerList()
 
 
+@pytest.fixture
+def execution_context():
+    """A fixture to pass the execution output, error and status to an other step. """
+    return {"stdout": "", "stderr": "", "status": "not_run"}
+
+
 def pytest_bdd_before_scenario(request, feature, scenario):
     '''
     Returns the corresponding ID for each scenario, taking account of the scanario outlines
