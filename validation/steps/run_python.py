@@ -46,7 +46,7 @@ def checks_api_execution_status(results_tracker, execution_context):
     results_tracker[0]["actual"] = execution_context["status"]
 
 
-@then("the Kortex API creation returns:")
+@then("the python Kortex API creation returns:")
 def assert_output_of_api_creation(results_tracker, execution_context, datatable):
     ''' Asserts the output of the API Creation example
 

@@ -1,5 +1,6 @@
 import subprocess
-from pytest_bdd import when, parsers
+import re
+from pytest_bdd import when, then, parsers
 
 # Folder where CMake puts the compiled examples (one executable per example)
 cpp_build_path = "../api_cpp/examples/build"
@@ -30,3 +31,22 @@ def cpp_run(file_name: str, execution_context):
         execution_context["status"] = "timeout"
     except FileNotFoundError:
         execution_context["status"] = "File Not Found"
+
+
+@then("the C++ Kortex API creation returns:")
+def assert_output_of_api_creation(results_tracker, execution_context, datatable):
+    ''' Asserts the output of the API Creation example
+
+        *Args*:
+            - results_tracker (fixture): Generic result comparaison fixture.
+            - execution_context (fixture): A fixture that contains the execution output, 
+            error and status
+            - datatable (string): Content of the output parameters.
+    '''
+    pattern = r"Creating\ssession\sfor\scommunication\\nSession\s(\w+)"
+    group_index = 1
+
+    match = re.search(pattern, str(execution_context["stdout"]))
+    results_tracker[0]["param"] = datatable[0][0]
+    results_tracker[0]["expected"] = datatable[0][1]
+    results_tracker[0]["actual"] = match.group(group_index)

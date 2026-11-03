@@ -87,11 +87,12 @@ def pytest_bdd_after_step(request, step, step_func_args, feature, scenario):
 
         # Creating the expected results dict from the datatable and add in .json
         datatable = step_func_args.get('datatable')
-        # to fix for datatable
-        if not datatable:
-            datatable = [0] * 2  # forcing a lenght of 2 for the datatable
+        # A step without datatable still has one result to compare
+        row_count = len(datatable) if datatable else 1
 
-        for index in range(len(datatable) - 1):
+        step_entry["step_result"] = "PASS"
+        fail_data = None
+        for index in range(row_count):
             # Creating the actual results dict and add in .json
             tracker = step_func_args.get('results_tracker')
             expec_res = {tracker[index]["param"]: tracker[index]["expected"]}
@@ -99,14 +100,11 @@ def pytest_bdd_after_step(request, step, step_func_args, feature, scenario):
             step_entry["results_expected"].append(expec_res)
             step_entry["results_actual"].append(actual_res)
 
-            step_entry["step_result"] = "PASS"
-
             # Comparing the actual with the expected value and attribute PASS or FAIL
-            # for the specific step
-            fail_data = None
+            # for the specific step (the first failing row is the one reported)
             if tracker[index]["expected"] == tracker[index]["actual"] and tracker[index]["compairison"] in ("equal_str", "equal_int"):
                 pass
-            else:
+            elif fail_data is None:
                 fail_data = {
                     "feature": feature.name,
                     "scenario": scenario.name,
