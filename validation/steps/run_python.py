@@ -56,7 +56,12 @@ def assert_output_of_api_creation(results_tracker, execution_context, datatable)
             error and status
             - datatable (string): Content of the output parameters.
     '''
-    pattern = r"Creating\ssession\sfor\scommunication\\nSession\s(\w+)\\ndevice_type:\s(\w+)\\n\\nactive_state:\s(\w+)\\nconnection\s\{\\n\s+connection_identifier:\s(\d*)\\n\}\\n\\n"
+    pattern = (
+        r"Creating\ssession\sfor\scommunication\\nSession\s(\w+)\\n"
+        r"device_type:\s(\w+)\\n\\n"
+        r"active_state:\s(\w+)\\n"
+        r"connection\s\{\\n\s+connection_identifier:\s\d+\\n\}\\n\\n"
+    )
     group_index = 1
 
     match = re.search(pattern, str(execution_context["stdout"]))
@@ -65,3 +70,65 @@ def assert_output_of_api_creation(results_tracker, execution_context, datatable)
         results_tracker[group_index-1]["expected"] = row[1]
         results_tracker[group_index-1]["actual"] = match.group(group_index)
         group_index += 1
+
+
+@then("the python Kortex protobuf object manipulation is valid")
+def assert_output_of_protobuf_object_manipulation(results_tracker, execution_context):
+    ''' Asserts the output of the protobuf object manipulation example
+
+        *Args*:
+            - results_tracker (fixture): Generic result comparaison fixture.
+            - execution_context (fixture): A fixture that contains the execution output, 
+            error and status
+    '''
+    pattern = (
+        r"Sequence ID with index : \d+\\n"
+        r"Sequence ID with index : \d+\\n"
+        r"Sequence ID with object iterator : \d+\\n"
+        r"Sequence ID with object iterator : \d+\\n"
+        r"Content ssid_2: \d+\\n"
+        r"Content ssid_3: \d*\\n"
+        r"Json object:\\n"
+        r"\{\\n"
+        r'  "name": "A Name",\\n'
+        r'  "tasks": \[\\n'
+        r"    \{\\n"
+        r'      "groupIdentifier": \d+\\n'
+        r"    \},\\n"
+        r"    \{\\n"
+        r'      "groupIdentifier": \d+\\n'
+        r"    \},\\n"
+        r"    \{\\n"
+        r'      "groupIdentifier": \d+\\n'
+        r"    \},\\n"
+        r"    \{\\n"
+        r'      "groupIdentifier": \d+\\n'
+        r"    \},\\n"
+        r"    \{\\n"
+        r'      "groupIdentifier": \d+\\n'
+        r"    \}\\n"
+        r"  \]\\n"
+        r"\}\\n"
+        r"Text format:\\n"
+        r'name: "A Name"\\n'
+        r"tasks \{\\n"
+        r"  group_identifier: \d+\\n"
+        r"\}\\n"
+        r"tasks \{\\n"
+        r"  group_identifier: \d+\\n"
+        r"\}\\n"
+        r"tasks \{\\n"
+        r"  group_identifier: \d+\\n"
+        r"\}\\n"
+        r"tasks \{\\n"
+        r"  group_identifier: \d+\\n"
+        r"\}\\n"
+        r"tasks \{\\n"
+        r"  group_identifier: \d+\\n"
+        r"\}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(re.search(
+        pattern, str(execution_context["stdout"])))
