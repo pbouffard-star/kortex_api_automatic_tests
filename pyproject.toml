@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 79
+target-version = "py39"
+# Only lint the test framework; the rest is vendored Kinova example code.
+include = ["validation/**/*.py"]
+extend-exclude = ["validation/TestMetrics"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
