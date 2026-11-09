@@ -1,8 +1,8 @@
 """Step definitions to run and check the python Kortex API examples."""
 
 import re
+import time
 import subprocess
-
 from pytest_bdd import parsers, then, when
 
 python_ex_file_path = "../api_python/examples"
@@ -20,7 +20,7 @@ def python_run(file_name: str, execution_context):
     path = f"{python_ex_file_path}/{file_name}"
     try:
         result = subprocess.run(
-            ["python3.9", path], capture_output=True, timeout=5
+            ["python3.9", "-u", path], capture_output=True, timeout=30
         )
         execution_context["stdout"] = result.stdout
         execution_context["status"] = "success"
@@ -205,3 +205,52 @@ def assert_output_of_error_management(
         results_tracker[group_index - 1]["expected"] = row[1]
         results_tracker[group_index - 1]["actual"] = match.group(group_index)
         group_index += 1
+
+
+@then("the python Kortex API notification output is valid")
+def assert_output_of_api_notification(results_tracker, execution_context):
+    """Assert the output of the API notification example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Subscribing to ConfigurationChange notifications\\n"
+        r"Creating user profile to trigger notification\\n"
+        r"User \w+ created\\n"
+        r"\*{28}\\n"
+        r"\* Callback function called \*\\n"
+        r"\{\\n"
+        r'  "event": "CONFIGURATION_CREATED",\\n'
+        r'  "timestamp": \{\\n'
+        r'    "sec": \d+,\\n'
+        r'    "usec": \d+\\n'
+        r"  \},\\n"
+        r'  "userHandle": \{\\n'
+        r'    "identifier": \d+\\n'
+        r"  \},\\n"
+        r'  "userProfileHandle": \{\\n'
+        r'    "identifier": \d+\\n'
+        r"  \},\\n"
+        r'  "connection": \{\\n'
+        r'    "userHandle": \{\\n'
+        r'      "identifier": \d+\\n'
+        r"    \},\\n"
+        r'    "connectionInformation": '
+        r'"type=TCP;ip=(?:\d{1,3}\.){3}\d{1,3};port=\d+",\\n'
+        r'    "connectionIdentifier": \d+\\n'
+        r"  \}\\n"
+        r"\}\\n"
+        r"\*{28}\\n"
+        r"Now unsubscribing from ConfigurationChange notifications\\n"
+        r"Deleting previously created user profile \(jcash\)\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        re.search(pattern, str(execution_context["stdout"]))
+    )

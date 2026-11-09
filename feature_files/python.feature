@@ -10,6 +10,7 @@ Feature: python examples
             | device type           | BASE                    |
             | active state          | ARMSTATE_SERVOING_READY |
 
+
     Scenario: run in python the Kortex API example called protobuf object manipulation
         When running the python '000-Getting_Started/02-protobuf_object_manipulation.py' Kortex API example
         Then the Kortex API example was run successfully
@@ -29,3 +30,9 @@ Feature: python examples
             | Sub_error_code      | 105            |
             | Server error name   | ERROR_DEVICE   |
             | sub name            | USERNAME_EMPTY |
+
+
+    Scenario: run in python the Kortex API example called notification
+        When running the python '000-Getting_Started/05-notification.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API notification output is valid
