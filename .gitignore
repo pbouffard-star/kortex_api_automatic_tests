@@ -10,10 +10,8 @@ kortex/API/*/*
 # From Git Hub
 kortex_api/
 kortex_api*.zip
-api_cpp/examples/build*
 __pycache__/
-api_cpp/gen3_lite_leader_follower_example/build/
-api_cpp/gen3_lite_leader_follower_example/kortex_api/
+api_cpp/
 
 # Log of result files
 validation/TestMetrics/*
