@@ -12,6 +12,7 @@ kortex_api/
 kortex_api*.zip
 __pycache__/
 api_cpp/
+api_python/
 
 # Log of result files
 validation/TestMetrics/*
