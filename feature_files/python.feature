@@ -27,7 +27,7 @@ Feature: python examples
         When running the python '000-Getting_Started/04-error_management.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API error management returns:
-        
+
             | Error_code          | 3              |
             | Sub_error_code      | 105            |
             | Server error name   | ERROR_DEVICE   |
@@ -107,7 +107,7 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called torque control cyclic
-        When running the python '108-Gen3_torque_control/01-torque_control_cyclic.py' Kortex API example
+        When running the python '108-Gen3_torque_control/01-torque_control_cyclic.py' Kortex API example with a timeout of 60 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API torque control cyclic output is valid
 
@@ -122,3 +122,39 @@ Feature: python examples
         When running the python '110-Waypoints/01-send_angular_wapoint_trajectory.py' Kortex API example with a timeout of 120 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API send angular waypoint trajectory output is valid
+
+
+    Scenario: run in python the Kortex API example called send cartesian waypoint trajectory
+        When running the python '110-Waypoints/02-send_cartesian_waypoint_trajectory.py' Kortex API example with a timeout of 120 seconds
+        Then the Kortex API example was run successfully
+        Then the python Kortex API send cartesian waypoint trajectory output is valid
+
+
+    Scenario: run in python the Kortex API example called compute kinematics
+        When running the python '111-kinematics/01-compute-kinematics.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API compute kinematics output is valid
+
+
+    Scenario: run in python the Kortex API vision intrinsics
+        When running the python '500-Gen3_vision_configuration/01-vision_intrinsics.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API vision intrinsics output is valid
+
+
+    Scenario: run in python the Kortex API vision extrinsics
+        When running the python '500-Gen3_vision_configuration/02-vision_extrinsics.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API vision extrinsics output is valid
+
+
+    Scenario: run in python the Kortex API vision sensor focus action
+        When running the python '500-Gen3_vision_configuration/03-vision_sensor_focus_action.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API vision sensor focus action output is valid
+
+
+    Scenario: run in python the Kortex API vision sensor options
+        When running the python '500-Gen3_vision_configuration/04-vision_sensor_options.py' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the python Kortex API vision sensor options output is valid

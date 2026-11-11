@@ -8,10 +8,10 @@ from pytest_bdd import parsers, then, when
 # Folder where CMake puts the compiled examples
 # (one executable per example)
 cpp_build_path = "../api_cpp/examples/build"
+DEFAULT_TIMEOUT = 5  # seconds
 
 
-@when(parsers.parse("running the c++ '{file_name}' Kortex API example"))
-def cpp_run(file_name: str, execution_context):
+def run_cpp_file(file_name: str, timeout: int, execution_context):
     """Run the prebuilt executable of the specified C++ example.
 
     The CMake build names each executable after its source path, with '/'
@@ -22,13 +22,14 @@ def cpp_run(file_name: str, execution_context):
     *Args*:
         - file_name (string): Path and file name of the C++ source file of
         the example.
+        - timeout (int): Maximum execution time, in seconds.
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
     exe_name = file_name.removesuffix(".cpp").replace("/", "_")
     path = f"{cpp_build_path}/{exe_name}"
     try:
-        result = subprocess.run([path], capture_output=True, timeout=5)
+        result = subprocess.run([path], capture_output=True, timeout=timeout)
         execution_context["stdout"] = result.stdout
         execution_context["stderr"] = result.stderr
         execution_context["status"] = (
@@ -40,6 +41,38 @@ def cpp_run(file_name: str, execution_context):
         execution_context["status"] = "timeout"
     except FileNotFoundError:
         execution_context["status"] = "File Not Found"
+
+
+@when(parsers.parse("running the c++ '{file_name}' Kortex API example"))
+def cpp_run(file_name: str, execution_context):
+    """Run the prebuilt C++ example with the default timeout.
+
+    *Args*:
+        - file_name (string): Path and file name of the C++ source file of
+        the example.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    run_cpp_file(file_name, DEFAULT_TIMEOUT, execution_context)
+
+
+@when(
+    parsers.parse(
+        "running the c++ '{file_name}' Kortex API example "
+        "with a timeout of {timeout:d} seconds"
+    )
+)
+def cpp_run_with_timeout(file_name: str, timeout: int, execution_context):
+    """Run the prebuilt C++ example with a timeout given by the scenario.
+
+    *Args*:
+        - file_name (string): Path and file name of the C++ source file of
+        the example.
+        - timeout (int): Maximum execution time, in seconds.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    run_cpp_file(file_name, timeout, execution_context)
 
 
 @then("the C++ Kortex API creation returns:")

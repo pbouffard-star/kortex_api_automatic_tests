@@ -106,6 +106,49 @@ def python_run_with_timeout(
 @when(
     parsers.parse(
         "running the python '{file_name}' Kortex API example "
+        "with a timeout of {timeout:d} seconds, retrying up to "
+        "{attempts:d} times unless the output ends with '{ending}'"
+    )
+)
+def python_run_with_retry(
+    file_name: str,
+    timeout: int,
+    attempts: int,
+    ending: str,
+    execution_context,
+):
+    """Run the python file again if its output does not end as expected.
+
+    Some examples are not reliable (for example because of a race condition
+    in the example itself). The file is run until the output ends with the
+    expected text, or until the maximum number of attempts is reached. The
+    result of the last attempt is kept.
+
+    *Args*:
+        - file_name (string): Path and file name of the python file.
+        - timeout (int): Maximum execution time of each attempt, in seconds.
+        - attempts (int): Maximum number of attempts.
+        - ending (string): Text the output must end with to be accepted.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    for attempt in range(1, attempts + 1):
+        run_python_file(file_name, timeout, execution_context)
+        execution_context["attempts"] = attempt
+        output = execution_context.get("stdout") or b""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        if output.rstrip().endswith(ending):
+            return
+        print(
+            f"Attempt {attempt}/{attempts}: the output does not end with "
+            f"{ending!r} (status: {execution_context.get('status')})"
+        )
+
+
+@when(
+    parsers.parse(
+        "running the python '{file_name}' Kortex API example "
         "and pressing ESC once '{prompt}' is displayed"
     )
 )
@@ -749,6 +792,11 @@ def assert_output_of_api_torque_control_cyclic_command(
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
+    # The cyclic part runs in a thread of the example, so its messages can
+    # come in a different order from one run to the other (and the example
+    # can even be stopped before the end of the 30 seconds). Only the
+    # presence of each message is checked after "Init Cyclic". The messages
+    # of the two threads can also be mixed on the same line.
     pattern = (
         r"(?:Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n)+"
         r"Moving the arm to a safe position\\n"
@@ -758,12 +806,11 @@ def assert_output_of_api_torque_control_cyclic_command(
         r"EVENT : ACTION_END\\n"
         r"Cartesian movement completed\\n"
         r"Init Cyclic\\n"
-        r"Run Cyclic\\n"
-        r"Running torque control example for \d+ seconds\\n"
-        r"Cyclic Finished\\n"
-        r"Stopping the cyclic and putting the arm back in position mode"
-        r"\.\.\.\\n"
-        r"Clean Exit\\n"
+        r"(?=.*Run Cyclic)"
+        r"(?=.*Running torque control example for \d+ seconds)"
+        r"(?=.*Stopping the cyclic and putting the arm back in position "
+        r"mode\.\.\.)"
+        r"(?=.*Clean Exit)"
     )
 
     results_tracker[0]["param"] = "Output Message"
@@ -821,6 +868,182 @@ def assert_output_of_api_send_angular_waypoint_trajectory_command(
         r"(?:EVENT : ACTION_FEEDBACK\\n)*"
         r"EVENT : ACTION_END\\n"
         r"Angular movement completed\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API send cartesian waypoint trajectory output is valid"
+)
+def assert_output_of_api_send_cartesian_waypoint_trajectory(
+    results_tracker, execution_context
+):
+    """Assert the output of the send cartesian waypoint trajectory example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    action_events = (
+        r"EVENT : ACTION_START\\n"
+        r"(?:EVENT : ACTION_FEEDBACK\\n)*"
+        r"EVENT : ACTION_END\\n"
+    )
+    trajectory_events = (
+        r"Waiting for trajectory to finish \.\.\.\\n"
+        r"(?:EVENT : ACTION_PREPROCESS_END\\n)?"
+        rf"{action_events}"
+    )
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Moving the arm to a safe position\\n"
+        rf"{action_events}"
+        r"Safe position reached\\n"
+        r"Moving cartesian trajectory\.\.\.\\n"
+        rf"{trajectory_events}"
+        r"Cartesian trajectory with no optimization completed +\\n"
+        rf"{trajectory_events}"
+        r"Cartesian trajectory with optimization completed +\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API compute kinematics output is valid"
+)
+def assert_output_of_api_compute_kinematics(
+    results_tracker, execution_context
+):
+    """Assert the output of the compute kinematics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+    joint_angles = (
+        r"Joint ID : Joint Angle\\n"
+        rf"(?:\d+ +: +{number}\\n)+"
+    )
+    pattern = (
+        rf"{joint_angles}"
+        r"\\n"
+        r"Computing Foward Kinematics using joint angles\.\.\.\\n"
+        r"Pose calculated : +\\n"
+        rf"Coordinate \(x, y, z\) +: \(({number}, ){{2}}{number}\)\\n"
+        r"Theta \(theta_x, theta_y, theta_z\) +: "
+        rf"\(({number}, ){{2}}{number}\)\\n"
+        r"\\n"
+        r"Computing Inverse Kinematics using joint angles and pose\.\.\.\\n"
+        rf"{joint_angles}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API vision intrinsics output is valid"
+)
+def assert_output_of_api_vision_intrinsics(
+    results_tracker, execution_context
+):
+    """Assert the output of the vision intrinsics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API vision extrinsics output is valid"
+)
+def assert_output_of_api_vision_extrinsics(
+    results_tracker, execution_context
+):
+    """Assert the output of the vision extrinsics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API vision sensor focus action output is valid"
+)
+def assert_output_of_api_vision_sensor_focus_action(
+    results_tracker, execution_context
+):
+    """Assert the output of the vision sensor focus action example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the python Kortex API vision sensor options output is valid"
+)
+def assert_output_of_api_vision_sensor_options(
+    results_tracker, execution_context
+):
+    """Assert the output of the vision sensor options example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
     )
 
     results_tracker[0]["param"] = "Output Message"
