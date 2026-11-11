@@ -266,3 +266,212 @@ def assert_output_of_api_notification(results_tracker, execution_context):
     results_tracker[0]["actual"] = bool(
         search_output(pattern, execution_context)
     )
+
+
+@then("the C++ Kortex API devices routing output is valid")
+def assert_output_of_api_devices_routing(results_tracker, execution_context):
+    """Assert the output of the API devices routing example (device list).
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    text = r'"[^"\\]+"'
+    device = (
+        r"-----------------------------\\n"
+        r"-- [A-Z_]+: id = \d+ --\\n"
+        r"device_type: [A-Z_]+\\n"
+        r"firmware_version: \d+\\n"
+        r"bootloader_version: \d+\\n"
+        rf"model_number: {text}\\n"
+        rf"part_number: {text}\\n"
+        rf"part_number_revision: {text}\\n"
+        rf"serial_number: {text}\\n"
+        # Each byte is printed in hex, padded with a space (ex: ' 0')
+        r"MAC address: (?:[0-9a-f ]{2}:){5}[0-9a-f ]{2}\\n"
+    )
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        rf"(?:{device})+"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the C++ Kortex API protection zone configuration output is valid"
+)
+def assert_output_of_api_protection_zone_configuration(
+    results_tracker, execution_context
+):
+    """Assert the output of the protection zone configuration example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+    event = (
+        r"EVENT : ACTION_START\\n"
+        r"(?:EVENT : ACTION_FEEDBACK\\n)*"
+        r"EVENT : ACTION_END\\n"
+    )
+    safe_position = rf"Moving the arm to a safe position\\n{event}"
+    # The zone name is followed by a space before " Origin", so the output
+    # contains two spaces there for the zones created by the example
+    zones = (
+        r"PROTECTION ZONES : \\n"
+        r"(?:Protection Zone : [\w ]+ "
+        rf"Origin : \[ (?:{number} ){{3}}\] "
+        rf"Dimensions : \[ (?:{number} )+\]\\n)+"
+    )
+    move_in_front = (
+        r"Moving in front of protection zone\.\.\.\\n"
+        r"Reaching cartesian pose\.\.\.\\n"
+        r"Waiting\s+for movement to finish \.\.\.\\n"
+        rf"{event}"
+        r"Cartesian pose reached\\n"
+    )
+
+    def move_inside(state: str) -> str:
+        return (
+            rf"Moving inside {state} protection zone\.\.\.\\n"
+            r"Moving towards the protection zone for \d+ seconds\.\.\.\\n"
+            r"Going back to home position\.\.\.\\n"
+            rf"{safe_position}"
+        )
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        rf"{safe_position}{zones}"
+        rf"{move_in_front}{move_inside('disabled')}"
+        r"Creating and enabling protection zone\.\.\.\\n"
+        rf"{zones}"
+        rf"{move_in_front}{move_inside('enabled')}"
+        rf"{zones}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the C++ Kortex API move angular and cartesian output is valid"
+)
+def assert_output_of_move_angular_and_cartesian(
+    results_tracker, execution_context
+):
+    """Assert the output of the move angular and cartesian example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    event = r"[A-Z_]+"
+
+    def movement(kind: str, label: str, value_name: str) -> str:
+        return (
+            rf"Starting {kind} action movement \.\.\.\\n"
+            r"Executing action\\n"
+            r"Waiting for movement to finish \.\.\.\\n"
+            rf"{label} movement completed\\n"
+            rf"{value_name} value : {event}\\n"
+        )
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Move to Home completed\\n"
+        rf"Promise value : {event}\\n"
+        rf"{movement('Cartesian', 'Cartesian', 'Reference')}"
+        rf"{movement('angular', 'Angular', 'Promise')}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the C++ Kortex API sequence output is valid"
+)
+def assert_output_of_sequence(
+    results_tracker, execution_context
+):
+    """Assert the output of the sequence example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    event = r"[A-Z_]+"
+
+    def movement(kind: str, label: str, value_name: str) -> str:
+        return (
+            rf"Starting {kind} action movement \.\.\.\\n"
+            r"Executing action\\n"
+            r"Waiting for movement to finish \.\.\.\\n"
+            rf"{label} movement completed\\n"
+            rf"{value_name} value : {event}\\n"
+        )
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Creating Sequence\\n"
+        r"Appending Actions to Sequence\\n"
+        r"Creating Cartesian action\\n"
+        r"Creating angular action\\n"
+        r"Creating sequence on device and executing it\\n"
+        r"Waiting for sequence to finish \.\.\.\\n"
+        r"(?:Sequence task \d+ completed\.\\n)+"
+        r"Sequence completed\.\\n"
+        r"Promise value : SEQUENCE_COMPLETED\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API twist command output is valid")
+def assert_output_of_twist_command(results_tracker, execution_context):
+    """Assert the output of the twist command example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Sending twist command for \d+ seconds\.\.\.\\n"
+        r"Stopping robot \.\.\.\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
