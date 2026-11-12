@@ -59,3 +59,9 @@ Feature: c++ examples
         When running the C++ '102-High_level_movement/03-twist_command.cpp' Kortex API example
         Then the Kortex API example was run successfully
         Then the C++ Kortex API twist command output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called send joint speeds
+        When running the C++ '102-High_level_movement/04-send_joint_speeds.cpp' Kortex API example with a timeout of 30 seconds
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send joint speeds output is valid

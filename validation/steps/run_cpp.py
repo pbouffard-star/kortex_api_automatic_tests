@@ -475,3 +475,27 @@ def assert_output_of_twist_command(results_tracker, execution_context):
     results_tracker[0]["actual"] = bool(
         search_output(pattern, execution_context)
     )
+
+
+@then("the C++ Kortex API send joint speeds output is valid")
+def assert_output_of_send_joint_speeds(results_tracker, execution_context):
+    """Assert the output of the send joint speeds example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to the start position\.\.\.\\n"
+        r"Sending the angular velocities to the robot for \d+ seconds\.\.\.\\n"
+        r"Stopping the robot\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
