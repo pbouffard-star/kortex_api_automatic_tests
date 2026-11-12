@@ -146,25 +146,23 @@ def python_run_with_retry(
         )
 
 
-@when(
-    parsers.parse(
-        "running the python '{file_name}' Kortex API example "
-        "and pressing ESC once '{prompt}' is displayed"
-    )
-)
-def python_run_and_press_escape(
-    file_name: str, prompt: str, execution_context
+ESC_KEY = b"\x1b"
+
+
+def run_python_with_key_presses(
+    file_name: str, key_presses: list, execution_context
 ):
-    """Run the python file in a pseudo terminal and press ESC on its prompt.
+    """Run the python file in a pseudo terminal and send keys on prompts.
 
     Some examples wait for a key press on the keyboard (``termios``), which
     needs a real terminal as standard input. The file is run with a
-    pseudo terminal as stdin and the ESC key is sent once the prompt is
-    displayed in the output.
+    pseudo terminal as stdin. Each key is sent, in order, once its prompt is
+    displayed in the output (after the previous prompt).
 
     *Args*:
         - file_name (string): Path and file name of the python file.
-        - prompt (string): Text of the output after which ESC is pressed.
+        - key_presses (list): List of (prompt, key) tuples. The key (bytes)
+        is sent once the prompt (string) is displayed in the output.
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
@@ -180,21 +178,31 @@ def python_run_and_press_escape(
     os.close(slave_fd)
     stdout = b""
     status = "timeout"
+    sent = 0
+    search_from = 0
     try:
         deadline = time.monotonic() + timeout
-        # Wait for the prompt (the terminal is configured by then)
-        while time.monotonic() < deadline and process.poll() is None:
+        # Wait for each prompt (the terminal is configured by the first one)
+        while (
+            time.monotonic() < deadline
+            and process.poll() is None
+            and sent < len(key_presses)
+        ):
             ready, _, _ = select.select([process.stdout], [], [], 0.2)
             if ready:
                 chunk = os.read(process.stdout.fileno(), 4096)
                 if not chunk:
                     break
                 stdout += chunk
-                if prompt.encode() in stdout:
-                    time.sleep(0.5)
-                    os.write(master_fd, b"\x1b")
-                    status = "success"
-                    break
+            prompt, key = key_presses[sent]
+            position = stdout.find(prompt.encode(), search_from)
+            if position >= 0:
+                time.sleep(0.5)
+                os.write(master_fd, key)
+                search_from = position + len(prompt)
+                sent += 1
+        if sent == len(key_presses):
+            status = "success"
         remaining = max(deadline - time.monotonic(), 1)
         out, err = process.communicate(timeout=remaining)
         stdout += out
@@ -211,6 +219,55 @@ def python_run_and_press_escape(
         os.close(master_fd)
     execution_context["stdout"] = stdout
     execution_context["status"] = status
+
+
+@when(
+    parsers.parse(
+        "running the python '{file_name}' Kortex API example "
+        "and pressing ESC once '{prompt}' is displayed"
+    )
+)
+def python_run_and_press_escape(
+    file_name: str, prompt: str, execution_context
+):
+    """Run the python file and press ESC once the prompt is displayed.
+
+    *Args*:
+        - file_name (string): Path and file name of the python file.
+        - prompt (string): Text of the output after which ESC is pressed.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    run_python_with_key_presses(
+        file_name, [(prompt, ESC_KEY)], execution_context
+    )
+
+
+@when(
+    parsers.parse(
+        "running the python '{file_name}' Kortex API example, "
+        "pressing '{key}' once '{prompt}' is displayed "
+        "and ESC once '{done}' is displayed"
+    )
+)
+def python_run_and_press_key_then_escape(
+    file_name: str, key: str, prompt: str, done: str, execution_context
+):
+    """Run the python file, press a key, then press ESC.
+
+    *Args*:
+        - file_name (string): Path and file name of the python file.
+        - key (string): Key pressed once the prompt is displayed (ex: '9').
+        - prompt (string): Text of the output after which the key is pressed.
+        - done (string): Text of the output after which ESC is pressed.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    run_python_with_key_presses(
+        file_name,
+        [(prompt, key.encode()), (done, ESC_KEY)],
+        execution_context,
+    )
 
 
 @then("the Kortex API example was run successfully")
@@ -743,9 +800,9 @@ def assert_output_of_api_gripper_command(results_tracker, execution_context):
         r"Performing gripper test in position\.\.\.\\n"
         r"(?:Going to position \d+\.\d{2}\.\.\.\\n)+"
         r"Opening gripper using speed command\.\.\.\\n"
-        rf"Current position is : {number}\\n"
+        rf"(?:Current position is : {number}\\n)+"
         r"Closing gripper using speed command\.\.\.\\n"
-        rf"Current speed is : {number}\\n"
+        rf"(?:Current speed is : {number}\\n)+"
     )
 
     results_tracker[0]["param"] = "Output Message"
@@ -772,6 +829,44 @@ def assert_output_of_api_gripper_low_level_command(
         rf"(?:Position = +{number}\\n)+"
         r"Press keys '0' to '9' to change gripper position\. "
         r"Press ESC to quit\.\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    parsers.parse(
+        "the python Kortex API gripper low level command output is valid "
+        "after pressing '{key}'"
+    )
+)
+def assert_output_of_api_gripper_low_level_command_key(
+    key: str, results_tracker, execution_context
+):
+    """Assert the output of the gripper low level command after a key press.
+
+    Pressing the key '0' to '9' sends the gripper to the position
+    ``(key + 1) * 10``.
+
+    *Args*:
+        - key (string): Key ('0' to '9') pressed during the example.
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    target_position = (int(key) + 1) * 10
+    number = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+    pattern = (
+        r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        rf"(?:Position = +{number}\\n)+"
+        r"Press keys '0' to '9' to change gripper position\. "
+        r"Press ESC to quit\.\\n"
+        rf"Going to position {target_position}\\n"
+        r"Target reached\\n"
     )
 
     results_tracker[0]["param"] = "Output Message"
