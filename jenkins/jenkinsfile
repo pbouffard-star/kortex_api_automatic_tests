@@ -28,9 +28,9 @@ pipeline {
                                                   usernameVariable: 'JF_USER',
                                                   passwordVariable: 'JF_PASSWORD')]) {
                     sh '''
-                        # Prefer the agent's provisioned ~/.jfrog, as on the ubuntu24.04 agents
-                        # (see the agent prerequisites at the top of this file). 'jf c show'
-                        # exits 0 either way, so an empty output is what signals "no config".
+                        # Prefer the agent's provisioned ~/.jfrog, as on the ubuntu24.04 agents.
+                        # 'jf c show' exits 0 either way, so an empty output is what signals
+                        # "no config".
                         if [ -n "$(jf c show 2>/dev/null)" ]; then
                             echo "Using the JFrog CLI configuration already present on this agent."
                             jf c show
@@ -58,7 +58,6 @@ pipeline {
 
                     python3.9 -m venv .venv
 
-                    .venv/bin/pip install -r modbus/examples/requirements.txt
                     .venv/bin/pip install -r validation/requirements.txt
                 """
             }
@@ -84,6 +83,14 @@ pipeline {
 
                             env.GEN3_VERSION = buildNumber.toString()
                             echo "GEN3_VERSION assigned: ${env.GEN3_VERSION}"
+
+                            // The search above only lists the artifact: download it so that the
+                            // install stage finds the .swu file in the workspace
+                            sh """
+                                jf rt dl --sort-by created --sort-order desc --fail-no-op --limit 1 --flat \
+                                --props branch_name=development \
+                                generic-local-build/kortex/products/gen3/development/*/Gen3*.swu
+                            """
                         } else {
                             error("No artifacts found matching the query!")
                         }
@@ -112,7 +119,7 @@ pipeline {
                         sh """
                             echo "=== Contents of kortex/API/${env.KORTEX_VERSION} ==="
                             ls -la "kortex/API/${env.KORTEX_VERSION}" || true
-                            python3.9 -m pip install kortex/API/${env.KORTEX_VERSION}/*.whl
+                            .venv/bin/pip install kortex/API/${env.KORTEX_VERSION}/*.whl
                         """
                     }
                 }
@@ -129,7 +136,10 @@ pipeline {
                         SSH_OPTS="-o UserKnownHostsFile=known_hosts -o BatchMode=yes \\
                                   -o IdentitiesOnly=yes -i \${GEN3_SSH_KEY}"
 
-                        scp Gen3-${GEN3_VERSION}.swu ${GEN3_IP}:/mnt/download/firmware.swu
+                        SWU_FILE=\$(ls -t Gen3*.swu | head -n 1)
+                        [ -n "\$SWU_FILE" ] || { echo "No Gen3*.swu file in the workspace"; exit 1; }
+
+                        scp \$SSH_OPTS "\$SWU_FILE" root@${GEN3_IP}:/mnt/download/firmware.swu
                         ssh \$SSH_OPTS root@${GEN3_IP} '
                             ./opt/armbase/scripts/flash_swu.sh
                             reboot
@@ -140,17 +150,22 @@ pipeline {
         }
         stage('Run Automated Validation') {
             steps {
-                // Running the Pytest command
                 script {
-                    // Python
-                    sh """
-                        python3.9 api_python/examples/000-Getting_Started/01-api_creation.py
-                    """
-                    
-                    // C++
+                    // Build the C++ examples (one executable per example)
                     sh """
                         cd api_cpp/examples && cmake -B build && cmake --build build
-                        python3.9 api_python/examples/000-Getting_Started/01-api_creation.py
+                    """
+
+                    // Run the Python and C++ scenarios. The .venv goes first in the PATH so
+                    // that the 'python3.9' started by the tests is the one with kortex_api.
+                    // Must run from validation/ (the examples are found with relative paths).
+                    sh """
+                        export PATH="${WORKSPACE}/.venv/bin:\$PATH"
+                        cd validation
+                        python3.9 -m pytest scenarios.py -v \
+                            --json-report --json-report-file=./TestMetrics/json/TestReport.json \
+                            --html=report.html --self-contained-html \
+                            --junitxml=results.xml
                     """
                 }
             }

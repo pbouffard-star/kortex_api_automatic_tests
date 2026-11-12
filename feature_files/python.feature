@@ -93,19 +93,19 @@ Feature: python examples
         Then the Kortex API example was run successfully
         Then the python Kortex API I2C bridge output is valid
 
-    @gripper
+
     Scenario: run in python the Kortex API example called gripper command
         When running the python '106-Gripper_command/01-gripper_command.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API gripper command output is valid
 
-    @gripper
+
     Scenario: run in python the Kortex API example called gripper low level command
         When running the python '107-Gripper_low_level_command/01-gripper_low_level_command.py' Kortex API example and pressing ESC once 'Press ESC to quit' is displayed
         Then the Kortex API example was run successfully
         Then the python Kortex API gripper low level command output is valid
 
-    @gripper
+
     Scenario: run in python the Kortex API example called gripper low level command pressing 9
         When running the python '107-Gripper_low_level_command/01-gripper_low_level_command.py' Kortex API example, pressing '9' once 'Press ESC to quit' is displayed and ESC once 'Target reached' is displayed
         Then the Kortex API example was run successfully
