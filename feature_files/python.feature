@@ -142,25 +142,25 @@ Feature: python examples
         Then the python Kortex API compute kinematics output is valid
 
 
-    Scenario: run in python the Kortex API vision intrinsics
+    Scenario: run in python the Kortex API example called vision intrinsics
         When running the python '500-Gen3_vision_configuration/01-vision_intrinsics.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API vision intrinsics output is valid
 
 
-    Scenario: run in python the Kortex API vision extrinsics
+    Scenario: run in python the Kortex API example called vision extrinsics
         When running the python '500-Gen3_vision_configuration/02-vision_extrinsics.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API vision extrinsics output is valid
 
 
-    Scenario: run in python the Kortex API vision sensor focus action
-        When running the python '500-Gen3_vision_configuration/03-vision_sensor_focus_action.py' Kortex API example
+    Scenario: run in python the Kortex API example called vision sensor focus action
+        When running the python '500-Gen3_vision_configuration/03-vision_sensor_focus_action.py' Kortex API example with a timeout of 180 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API vision sensor focus action output is valid
 
 
-    Scenario: run in python the Kortex API vision sensor options
-        When running the python '500-Gen3_vision_configuration/04-vision_sensor_options.py' Kortex API example
+    Scenario: run in python the Kortex API example called vision sensor options
+        When running the python '500-Gen3_vision_configuration/04-vision_sensor_options.py' Kortex API example with a timeout of 120 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API vision sensor options output is valid

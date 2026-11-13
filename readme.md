@@ -64,6 +64,8 @@ defaults in the examples' `utilities.py` / `utilities.cpp`.
 The local development environment is the pyenv virtual environment `kts-robot-3.9` (see
 `.python-version` and `.vscode/settings.json`). The pipeline uses a `.venv` instead. Either works.
 
+Hardware wise, you need a GEN3 with a camera and a gripper in order to execute all API completely.
+
 ## Jenkins stages, run manually
 
 The pipeline has seven stages, run in this order. The variables below are the ones used by the

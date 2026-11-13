@@ -300,7 +300,7 @@ def assert_output_of_api_creation(
         r"Creating\ssession\sfor\scommunication\\nSession\s(\w+)\\n"
         r"device_type:\s(\w+)\\n\\n"
         r"active_state:\s(\w+)\\n"
-        r"connection\s\{\\n\s+connection_identifier:\s\d+\\n\}\\n\\n"
+        r"connection\s\{\\n(?:\s+connection_identifier:\s\d+\\n)?\}\\n\\n"
     )
     group_index = 1
 
@@ -505,8 +505,8 @@ def assert_output_of_api_device_routine(results_tracker, execution_context):
         r" +deviceType: \w+\\n"
         r" +firmwareVersion: \d+\\n"
         r" +bootloaderVersion: \d+\\n"
-        r" +modelNumber: \w+\\n"
-        r" +partNumber: \w+\\n"
+        r" +modelNumber: [\w-]+\\n"
+        r" +partNumber: [\w-]+\\n"
         r" +partNumberRevision: \d+\\n"
         r" +serialNumber: [\w-]+\\n"
         r" +macAddress: (?:[0-9A-F]{2}:){5}[0-9A-F]{2}\\n"
@@ -1065,8 +1065,46 @@ def assert_output_of_api_vision_intrinsics(
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
+    number = r"-?\d+\.\d+"
+    resolution = r"\d+x\d+"
+
+    # The example prints a blank line before each title (the last line of the
+    # output is followed by a single line break only)
+    def get_block(title: str) -> str:
+        """Title line, then the intrinsic parameters of a sensor."""
+        return (
+            rf"\\n-- Using Vision Config Service to {title} --\\n"
+            r"Sensor: \d+ \((?:Color|Depth)\)\\n"
+            rf"Resolution: \d+ \({resolution}\)\\n"
+            rf"Principal point x: {number}\\n"
+            rf"Principal point y: {number}\\n"
+            rf"Focal length x: {number}\\n"
+            rf"Focal length y: {number}\\n"
+            rf"Distortion coefficients: \[(?:{number} ){{4}}{number}\]\\n"
+        )
+
+    def set_line(title: str) -> str:
+        """Title line of a set request (no parameters are printed)."""
+        return rf"\\n-- Using Vision Config Service to {title} --\\n"
+
     pattern = (
         r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Vision module found, device Id: \d+\\n"
+        r"\\n\\n\*\* Example showing how to retrieve the intrinsic parameters "
+        r"of the Color and Depth sensors \*\*\\n"
+        rf"{get_block('get intrinsic parameters of active color resolution')}"
+        rf"{get_block('get intrinsic parameters of active depth resolution')}"
+        rf"{get_block(f'get intrinsic parameters for color resolution {resolution}')}"
+        rf"{get_block(f'get intrinsic parameters for depth resolution {resolution}')}"
+        r"\\n\\n\*\* Example showing how to set the intrinsic parameters of "
+        r"the Color and Depth sensors \*\*\\n"
+        + "".join(
+            get_block(f"get current intrinsic parameters for {sensor} resolution {resolution}")
+            + set_line(f"set new intrinsic parameters for {sensor} resolution {resolution}")
+            + get_block(f"get new intrinsic parameters for {sensor} resolution {resolution}")
+            + set_line(f"set back old intrinsic parameters for {sensor} resolution {resolution}")
+            for sensor in ("color", "depth")
+        )
     )
 
     results_tracker[0]["param"] = "Output Message"
@@ -1089,8 +1127,39 @@ def assert_output_of_api_vision_extrinsics(
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
+    number = r"-?\d+\.\d+"
+    row = rf"{number}(?: +{number}){{2}}"
+
+    # The example prints a blank line before each title (the last line of the
+    # output is followed by a single line break only)
+    def get_block(title: str) -> str:
+        """Title line, then the rotation matrix and translation vector."""
+        return (
+            rf"\\n-- Using Vision Config Service to {title} --\\n"
+            r"Rotation matrix:\\n"
+            # The matrix is printed on 3 lines, each number being padded
+            rf"\[ *{row}\\n"
+            rf" +{row}\\n"
+            rf" +{row}\]\\n"
+            rf"Translation vector: \[{number}(?: {number}){{2}}\]\\n"
+        )
+
+    def set_line(title: str) -> str:
+        """Title line of a set request (no parameters are printed)."""
+        return rf"\\n-- Using Vision Config Service to {title} --\\n"
+
     pattern = (
         r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Vision module found, device Id: \d+\\n"
+        r"\\n\\n\*\* Example showing how to retrieve the extrinsic parameters "
+        r"\*\*\\n"
+        rf"{get_block('get extrinsic parameters')}"
+        r"\\n\\n\*\* Example showing how to set the extrinsic parameters "
+        r"\*\*\\n"
+        rf"{get_block('get current extrinsic parameters')}"
+        rf"{set_line('set new extrinsic parameters')}"
+        rf"{get_block('get new extrinsic parameters')}"
+        rf"{set_line('set back old extrinsic parameters')}"
     )
 
     results_tracker[0]["param"] = "Output Message"
@@ -1113,8 +1182,79 @@ def assert_output_of_api_vision_sensor_focus_action(
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
+    wait = r"-- Waiting for 10 seconds to observe the effects of the focus action\.\.\. --"
+
+    def action(title: str, hint: str) -> str:
+        """A focus action: blank line, title, what to observe, then the wait."""
+        return (
+            r"\\n-- Using Vision Config Service to " + re.escape(title)
+            # The space before the final dashes is missing in one title
+            + r" ?--\\n"
+            + re.escape(f"-- {hint} --") + r"\\n"
+            + wait + r"\\n"
+        )
+
+    def example(title: str) -> str:
+        """Title of an example, preceded by a blank line."""
+        return rf"\\n\*\* Example showing how to {re.escape(title)} \*\*\\n"
+
+    # (title of the action, what the user is asked to observe)
+    auto_focus = [
+        ("disable the auto-focus",
+         "Place or remove an object from the center of the camera, "
+         "observe the focus doesn't change"),
+        ("enable the auto-focus",
+         "Place an object in the center of the camera, "
+         "observe the focus adjusts automatically"),
+        ("pause the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus doesn't change"),
+        ("focus now",
+         "Observe the focus tried to adjust to the object in front to the "
+         "camera"),
+        ("re-enable the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus adjusts "
+         "automatically"),
+    ]
+    focus_point = [
+        ("set the focus point in the center of the lower right quadrant of "
+         "the camera image",
+         "Place an object in the center of the lower right quadrant of the "
+         "camera image, observe the object gets into focus"),
+        ("set the focus point back in the middle the camera image",
+         "Place an object in the center of the camera image, "
+         "observe the object gets into focus"),
+    ]
+    manual_focus = [
+        ("set the manual focus on a very close object (close-up view)",
+         "Place an object at around 2 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("set the manual focus on an object at a greater distance",
+         "Move the object away from the camera until it gets into focus"),
+        ("set the manual focus on a relatively close object (normal view)",
+         "Move the object at around 8 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("re-enable the auto-focus",
+         "Move the object away from the camera and then back, but at a "
+         "different distance, observe the focus adjusts automatically"),
+    ]
+
     pattern = (
         r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Vision module found, device Id: \d+\\n"
+        + example("play with the auto-focus of the Color camera")
+        + "".join(action(*step) for step in auto_focus)
+        + example(
+            "set the focus of the Color camera to a X-Y point in the camera "
+            "image"
+        )
+        + "".join(action(*step) for step in focus_point)
+        + example(
+            "set the manual focus of the Color camera (changes the focus "
+            "distance)"
+        )
+        + "".join(action(*step) for step in manual_focus)
     )
 
     results_tracker[0]["param"] = "Output Message"
@@ -1137,8 +1277,107 @@ def assert_output_of_api_vision_sensor_options(
         - execution_context (fixture): A fixture that contains the execution
         output, error and status
     """
+    number = r"-?\d+\.\d+"
+    option = r"OPTION_\w+"
+
+    # The example prints a blank line before each title (and some extra ones)
+    def title(text: str) -> str:
+        """Title line, preceded by a blank line."""
+        return r"\\n-- " + re.escape(text) + r" --\\n"
+
+    def example(text: str) -> str:
+        """Title of an example, preceded by a blank line."""
+        return r"\\n\*\* " + re.escape(text) + r" \*\*\\n"
+
+    def vision(text: str) -> str:
+        return title(f"Using Vision Config Service to {text}")
+
+    information = (
+        rf"(?:Option id: \d+  name: {option}  is_writable: (?:True|False)\\n"
+        rf"minimum: {number}  maximum: {number}\\n"
+        rf"   step: {number}  default: {number}\\n\\n)+"
+    )
+    values = rf"(?:Option '{option}' has value {number}\\n)+"
+    set_values = rf"(?:Set value \({number}\) for option '{option}'\\n)+"
+    confirm_line = (
+        rf"Confirm received value \({number}\) for option '{option}' "
+        r"--> OK\\n"
+    )
+    confirm_values = rf"(?:{confirm_line})+"
+    # After the reboot of the Vision module, the example reports the options
+    # it could not read back. The device answers INVALID_PARAM for the gain
+    # (a known behaviour, to be confirmed). It is accepted here, as in the
+    # reference output, but any other option failing is not.
+    gain_not_read = (
+        r"Failed to get value for option 'OPTION_GAIN': "
+        r"Server error name=ERROR_DEVICE, sub name=INVALID_PARAM => *\\n\\n"
+    )
+    restored_values = rf"(?:{confirm_line}|{gain_not_read})+"
+
+    def set_and_confirm(value: str, sensor: str, confirmed=confirm_values):
+        return (
+            vision(f"set {value} value for all {sensor} sensor options")
+            + set_values
+            + vision(
+                f"confirm {value} value was set for all {sensor} sensor "
+                "options"
+            )
+            + confirmed
+        )
+
+    wait_color = title(
+        "Waiting for 5 seconds to observe the effects of the new COLOR "
+        "sensor options values..."
+    )
+
     pattern = (
         r"Logging as admin on device (?:\d{1,3}\.){3}\d{1,3}\\n"
+        r"Vision module found, device Id: \d+\\n"
+        # Options information
+        + example("Example showing how to get the sensors options information")
+        + "".join(
+            vision(f"get information for all {sensor} sensor options")
+            + information
+            for sensor in ("COLOR", "DEPTH")
+        )
+        # Options values
+        + example("Example showing how to get the sensors options values")
+        + "".join(
+            vision(f"get value for all {sensor} sensor options")
+            + values
+            + r"\\n"
+            for sensor in ("COLOR", "DEPTH")
+        )
+        # Set the max, then the default value
+        + example("Example showing how to set the sensors options values")
+        + "".join(
+            set_and_confirm(value, "COLOR")
+            + wait_color
+            + set_and_confirm(value, "DEPTH")
+            + r"\\n"
+            for value in ("max", "default")
+        )
+        # Values restored upon a reboot of the Vision module
+        + example(
+            "Example confirming that sensors options values are restored "
+            "upon a reboot of the Vision module"
+        )
+        + set_and_confirm("min", "COLOR")
+        + set_and_confirm("min", "DEPTH")
+        + r"\\n-- Using Device Config Service to reboot the Vision module in "
+        r"\d+ milliseconds\. Please wait\.\.\. --\\n"
+        + vision(
+            "confirm min value was restored after reboot for all COLOR "
+            "sensor options"
+        )
+        + confirm_values
+        + vision(
+            "confirm min value was restored after reboot for all DEPTH "
+            "sensor options"
+        )
+        + restored_values
+        + set_and_confirm("default", "COLOR")
+        + set_and_confirm("default", "DEPTH")
     )
 
     results_tracker[0]["param"] = "Output Message"
