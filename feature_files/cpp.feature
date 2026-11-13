@@ -65,3 +65,75 @@ Feature: c++ examples
         When running the C++ '102-High_level_movement/04-send_joint_speeds.cpp' Kortex API example with a timeout of 30 seconds
         Then the Kortex API example was run successfully
         Then the C++ Kortex API send joint speeds output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called send UART bridge
+        When running the C++ '103-Gen3_uart_bridge/01-uart_bridge.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send UART bridge output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called GPIO bridge
+        When running the C++ '104-Gen3_gpio_bridge/01-gpio_bridge.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send GPIO bridge output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called I2C bridge
+        When running the C++ '105-Gen3_i2c_bridge/01-i2c_bridge.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send I2C bridge output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called gripper command
+        When running the C++ '106-Gripper_command/01-gripper_command.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called gripper command output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called gripper low level command
+        When running the C++ '107-Gripper_low_level_command/01-gripper_low_level_command.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called gripper low level command output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API called torque control cyclic
+        When running the C++ '108-Gen3_torque_control/01-torque_control_cyclic.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called torque control cyclic output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API ethernet bridge configuration
+        When running the C++ '109-Gen3_ethernet_bridge/01-ethernet_bridge_configuration.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called ethernet bridge configuration output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API send angular waypoint trajectory
+        When running the C++ '110-Waypoints/01-send_angular_wapoint_trajectory.cpp' Kortex API example with a timeout of 120 seconds
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called send angular waypoint trajectory output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API send cartesian waypoint trajectory
+        When running the C++ '110-Waypoints/02-send_cartesian_waypoint_trajectory.cpp' Kortex API example with a timeout of 180 seconds
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called send cartesian waypoint trajectory output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API compute kinematics
+        When running the C++ '111-Kinematics/01-compute-kinematics.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called compute kinematics output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API actuator low level velocity control
+        When running the C++ '200-Actuator_low_level_control/01-actuator_low_level_velocity_control.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called actuator low level velocity control output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API actuator low level pseudo velocity control
+        When running the C++ '200-Actuator_low_level_control/02-actuator_low_level_pseudo_velocity_control.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called actuator low level pseudo velocity control output is valid

@@ -441,8 +441,14 @@ def assert_output_of_sequence(
         r"Creating angular action\\n"
         r"Creating sequence on device and executing it\\n"
         r"Waiting for sequence to finish \.\.\.\\n"
-        r"(?:Sequence task \d+ completed\.\\n)+"
-        r"Sequence completed\.\\n"
+        # The notification callbacks run in different threads, so the
+        # "Sequence task N completed." and "Sequence completed." lines can come
+        # in any order (even interleaved). Only check they were all printed
+        # before the final promise value.
+        r"(?=(?:(?!Promise value).)*Sequence task 0 completed\.)"
+        r"(?=(?:(?!Promise value).)*1 completed\.)"
+        r"(?=(?:(?!Promise value).)*Sequence completed\.)"
+        r"(?:(?!Promise value).)*"
         r"Promise value : SEQUENCE_COMPLETED\\n"
     )
 
@@ -499,3 +505,365 @@ def assert_output_of_send_joint_speeds(results_tracker, execution_context):
     results_tracker[0]["actual"] = bool(
         search_output(pattern, execution_context)
     )
+
+
+@then("the C++ Kortex API send UART bridge output is valid")
+def assert_output_of_uart_bridge(results_tracker, execution_context):
+    """Assert the output of the UART bridge example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Interconnect ID found = 0x[0-9a-fA-F]+\\n"
+        r"Bridge ID# \d+ created between Interconnect \(dev#\d+\) "
+        r"port #\d+ and external port #\d+\\n"
+        r"Waiting about \d+ seconds to receive data from UART\\n"
+        r"Characters received : .*?"
+        r"Test over!"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send GPIO bridge output is valid")
+def assert_output_of_gpio_bridge(results_tracker, execution_context):
+    """Assert the output of the GPIO bridge example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    gpio_step = (
+        r"GPIO pin GPIO_IDENTIFIER_1 will be put at value "
+        r"GPIO_VALUE_(?:HIGH|LOW)\\n"
+        r"GPIO pin GPIO_IDENTIFIER_2 will be put at value "
+        r"GPIO_VALUE_(?:HIGH|LOW)\\n"
+        r"Value read for pin #3 is : [01]\\n"
+        r"Value read for pin #4 is : [01]\\n"
+    )
+    pattern = (
+        r"Setting pin #1 as output\.\.\.\\n"
+        r"Setting pin #2 as output\.\.\.\\n"
+        r"Setting pin #3 as input pullup\.\.\.\\n"
+        r"Setting pin #4 as input pullup\.\.\.\\n"
+        r"GPIO bridge object initialized\\n"
+        rf"(?:{gpio_step}){{4}}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send I2C bridge output is valid")
+def assert_output_of_i2c_bridge(results_tracker, execution_context):
+    """Assert the output of the I2C bridge example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    server_error = (
+        r"Error: Server protocol error, Error sub type=SUB_ERROR_NONE => "
+        r"<srv: \d+, fct: \d+, msgType: \d+>(?:\\n)+"
+    )
+    pattern = (
+        r"I2C bridge object initialized\\n"
+        r"Reading byte array from interconnect I2C bus\.\.\.\\n"
+        rf"{server_error}"
+        r"Sending byte array to interconnect I2C bus\.\.\.\\n"
+        rf"{server_error}"
+        r"Reading byte array from interconnect I2C bus\.\.\.\\n"
+        rf"{server_error}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called gripper command output is valid")
+def assert_output_of_gripper_command(results_tracker, execution_context):
+    """Assert the output of the gripper command example.
+
+    The number of "Reported ..." lines depends on the gripper speed, so
+    each of those blocks accepts one or more lines.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"\d+(?:\.\d+)?"
+    pattern = (
+        r"Performing gripper test in position\.\.\.\\n"
+        r"Setting position to 0\\n"
+        r"(?:Setting position to 0\.\d\\n){9}"
+        r"Opening gripper using speed command\.\.\.\\n"
+        rf"(?:Reported position : {number}\\n)+"
+        r"Closing gripper using speed command\.\.\.\\n"
+        rf"(?:Reported speed : {number}\\n)+"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the C++ Kortex API send called gripper low level command output is valid"
+)
+def assert_output_of_gripper_low_level_command(
+    results_tracker, execution_context
+):
+    """Assert the output of the gripper low level command example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating sessions for communication\\n"
+        r"GripperLowLevel object initialized\\n"
+        r"Going to position : 0\\n"
+        r"(?:Going to position : \d+\\n){10}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called torque control cyclic output is valid")
+def assert_output_of_torque_control_cyclic(results_tracker, execution_context):
+    """Assert the output of the torque control cyclic command example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating transport objects\\n"
+        r"Creating transport real time objects\\n"
+        r"Creating sessions for communication\\n"
+        r"Sessions created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Move to Home completed\\n"
+        r"Promise value : ACTION_END\\n"
+        r"Initializing the arm for torque control example\\n"
+        r"Running torque control example for \d+ seconds\\n"
+        r"Torque control example completed\\n"
+        r"Torque control example clean exit\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called ethernet bridge configuration output is valid")
+def assert_output_of_ethernet_bridge_configuration(results_tracker, execution_context):
+    """Assert the output of the ethernet bridge example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Initizalizing the API\.\.\.\\n"
+        r"Done initizalizing the API\.\\n"
+        r"Configuring and enabling the Ethernet bridge\.\.\.\\n"
+        r"Done configuring the Ethernet bridge\.\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called send angular waypoint trajectory output is valid")
+def assert_output_of_send_angular_waypoit_trajectory(results_tracker, execution_context):
+    """Assert the output of the send angular waypoint trajectory example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Move to Home completed\\n"
+        r"Promise value : ACTION_END\\n"
+        r"Moving the arm creating a trajectory of \d+ angular waypoints\\n"
+        r"Angular waypoint trajectory completed\\n"
+        r"Promise value : ACTION_END\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then(
+    "the C++ Kortex API send called send cartesian waypoint trajectory output "
+    "is valid"
+)
+def assert_output_of_send_cartesian_waypoint_trajectory(
+    results_tracker, execution_context
+):
+    """Assert the output of the send cartesian waypoint trajectory example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"Move to Home completed\\n"
+        r"Promise value : ACTION_END\\n"
+        r"Moving the arm creating a trajectory of \d+ cartesian waypoints\\n"
+        r"cartesian waypoint trajectory completed\\n"
+        r"Promise value : ACTION_END\\n"
+        r"Optimized cartesian waypoint trajectory completed\\n"
+        r"Promise value : ACTION_END\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called compute kinematics output is valid")
+def assert_output_of_compute_kinematics(results_tracker, execution_context):
+    """Assert the output of the compute kinematics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+    joint_angles = rf"(?:\d+ : {number}\\n){{7}}"
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Getting Angles for every joint\.\.\.\\n"
+        r"Joint ID : Joint Angle\\n"
+        rf"{joint_angles}"
+        r"\\n"
+        r"Computing Foward Kinematics using joint angles\.\.\.\\n"
+        r"Pose calculated : \\n"
+        rf"Coordinate \(x, y, z\)  : \({number}, {number}, {number}\)\\n"
+        r"Theta \(theta_x, theta_y, theta_z\)  : "
+        rf"\({number}, {number}, {number}\)\\n"
+        r"\\n"
+        r"Computing Inverse Kinematics using joint angles and pose\.\.\.\\n"
+        r"Joint ID : Joint Angle\\n"
+        rf"{joint_angles}"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called actuator low level velocity control output is valid")
+def assert_output_of_actuator_low_level_velocity_control(results_tracker, execution_context):
+    """Assert the output of the actuator low level velocity control example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating sessions for communication\\n"
+        r"Sessions created\\n"
+        r"Moving the arm to a safe position\\n"
+        r"EVENT : ACTION_START\\n"
+        r"EVENT : ACTION_END\\n"
+        r"Initializing the arm for velocity low-level control example\\n"
+        r"Sending velocity command of \d+ deg/s to actuator \d+ "
+        r"for \d+ seconds\\n"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+
+@then(
+    "the C++ Kortex API send called actuator low level pseudo velocity "
+    "control output is valid"
+)
+def assert_output_of_actuator_low_level_pseudo_velocity_control(
+    results_tracker, execution_context
+):
+    """Assert the output of the actuator low level pseudo velocity example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    pattern = (
+        r"Creating sessions for communication\\n"
+        r"Sessions created\\n"
+        r"Moving the arm to a safe position\\n"
+        # The action notification callback runs in another thread, so its
+        # "EVENT : <name>" output can be mixed up with other events (ex:
+        # "EVENT : EVENT : ACTION_STARTACTION_FEEDBACK"). Only check that the
+        # start and end events were printed, in that order.
+        r".*ACTION_START.*ACTION_END\\n"
+        r"Initializing the arm for velocity low-level control example\\n"
+        # Then, the feedback of the moving actuator is printed as one JSON
+        # object followed by a blank line. Nothing else (ex: "Kortex error")
+        # is accepted until the end of the output.
+        r'(?:\{"commandId":\d+[^{}]*\}|\\n)+'
+        r"'\Z"
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
