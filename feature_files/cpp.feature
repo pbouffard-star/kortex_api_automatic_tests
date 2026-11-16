@@ -28,6 +28,7 @@ Feature: c++ examples
     Scenario: Test to run in Cpp the Kortex API called notification
         When running the C++ '000-Getting_started/05-notification.cpp' Kortex API example with a timeout of 15 seconds
         Then the Kortex API example was run successfully
+        Then the 'jcash' user profile is removed from the arm
         Then the C++ Kortex API notification output is valid
 
 

@@ -441,6 +441,35 @@ def assert_output_of_error_management(
         group_index += 1
 
 
+@then(parsers.parse("the '{username}' user profile is removed from the arm"))
+def cleanup_user_profile(username: str, results_tracker):
+    """Remove a user profile left on the arm by an example.
+
+    *Args*:
+        - username (string): Username of the profile to delete.
+        - results_tracker (fixture): Generic result comparaison fixture.
+    """
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "scripts",
+        "delete_user_profile.py",
+    )
+    result = subprocess.run(
+        ["python3.9", "-u", script, username],
+        capture_output=True,
+        timeout=DEFAULT_TIMEOUT,
+    )
+    if result.returncode != 0:
+        print(f"Cleanup stderr: {result.stderr!r}")
+
+    results_tracker[0]["param"] = "User profile cleanup"
+    results_tracker[0]["expected"] = "success"
+    results_tracker[0]["actual"] = (
+        "success" if result.returncode == 0 else "failed"
+    )
+
+
 @then("the python Kortex API notification output is valid")
 def assert_output_of_api_notification(results_tracker, execution_context):
     """Assert the output of the API notification example.

@@ -37,6 +37,7 @@ Feature: python examples
     Scenario: run in python the Kortex API example called notification
         When running the python '000-Getting_Started/05-notification.py' Kortex API example
         Then the Kortex API example was run successfully
+        Then the 'jcash' user profile is removed from the arm
         Then the python Kortex API notification output is valid
 
 
