@@ -138,3 +138,27 @@ Feature: c++ examples
         When running the C++ '200-Actuator_low_level_control/02-actuator_low_level_pseudo_velocity_control.cpp' Kortex API example
         Then the Kortex API example was run successfully
         Then the C++ Kortex API send called actuator low level pseudo velocity control output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API vision intrinsics
+        When running the C++ '500-Gen3_vision_configuration/01_vision_intrinsics.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called vision intrinsics output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API vision extrinsics
+        When running the C++ '500-Gen3_vision_configuration/02_vision_extrinsics.cpp' Kortex API example
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called vision extrinsics output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API vision sensor focus action
+        When running the C++ '500-Gen3_vision_configuration/03_vision_sensor_focus_action.cpp' Kortex API example with a timeout of 180 seconds
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called vision sensor focus action output is valid
+
+
+    Scenario: Test to run in Cpp the Kortex API vision sensor options
+        When running the C++ '500-Gen3_vision_configuration/04_vision_sensor_options.cpp' Kortex API example with a timeout of 120 seconds, retrying up to 4 times while the output matches 'Failed to set|FAILED'
+        Then the Kortex API example was run successfully
+        Then the C++ Kortex API send called vision sensor options output is valid

@@ -2,6 +2,7 @@
 
 import re
 import subprocess
+import time
 
 from pytest_bdd import parsers, then, when
 
@@ -9,6 +10,7 @@ from pytest_bdd import parsers, then, when
 # (one executable per example)
 cpp_build_path = "../api_cpp/examples/build"
 DEFAULT_TIMEOUT = 60  # seconds
+RETRY_DELAY = 30  # seconds to wait before running an example again
 
 
 def search_output(pattern: str, execution_context):
@@ -100,6 +102,56 @@ def cpp_run_with_timeout(file_name: str, timeout: int, execution_context):
         output, error and status
     """
     run_cpp_file(file_name, timeout, execution_context)
+
+
+@when(
+    parsers.parse(
+        "running the C++ '{file_name}' Kortex API example "
+        "with a timeout of {timeout:d} seconds, retrying up to "
+        "{attempts:d} times while the output matches '{flaky}'"
+    )
+)
+def cpp_run_with_retry(
+    file_name: str,
+    timeout: int,
+    attempts: int,
+    flaky: str,
+    execution_context,
+):
+    """Run the C++ example again while its output shows a device glitch.
+
+    Some examples depend on the device answering in time (ex: the Vision
+    module right after its reboot) and print an error without failing. The
+    example is run again while its output matches the regex, or until the
+    maximum number of attempts is reached. The result of the last attempt
+    is kept.
+
+    *Args*:
+        - file_name (string): Path and file name of the C++ source file of
+        the example.
+        - timeout (int): Maximum execution time of each attempt, in seconds.
+        - attempts (int): Maximum number of attempts.
+        - flaky (string): Regex of the output that triggers a new attempt.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    for attempt in range(1, attempts + 1):
+        run_cpp_file(file_name, timeout, execution_context)
+        execution_context["attempts"] = attempt
+        output = execution_context.get("stdout") or b""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        if execution_context.get("status") == "success" and not re.search(
+            flaky, output
+        ):
+            return
+        print(
+            f"Attempt {attempt}/{attempts}: the output is not reliable "
+            f"(status: {execution_context.get('status')})"
+        )
+        if attempt < attempts:
+            # Let the device (ex: a rebooted Vision module) settle
+            time.sleep(RETRY_DELAY)
 
 
 @then("the C++ Kortex API creation output is valid")
@@ -867,3 +919,499 @@ def assert_output_of_actuator_low_level_pseudo_velocity_control(
         search_output(pattern, execution_context)
     )
 
+
+
+@then("the C++ Kortex API send called vision intrinsics output is valid")
+def assert_output_of_vision_intrinsics(results_tracker, execution_context):
+    """Assert the output of the vision intrinsics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+\.\d+"
+    resolution = r"\d+x\d+"
+
+    # The example prints a blank line before each title
+    def get_block(title: str) -> str:
+        """Title line, then the intrinsic parameters of a sensor."""
+        return (
+            rf"\\n-- Using Vision Config Service to {title} --\\n"
+            r"Sensor: \d+ \((?:Color|Depth)\)\\n"
+            rf"Resolution: \d+ \({resolution}\)\\n"
+            rf"Principal point x: {number}\\n"
+            rf"Principal point y: {number}\\n"
+            rf"Focal length x: {number}\\n"
+            rf"Focal length y: {number}\\n"
+            rf"Distortion coefficients: \[(?:{number} ){{4}}{number}\]\\n"
+        )
+
+    def set_line(title: str) -> str:
+        """Title line of a set request (no parameters are printed)."""
+        return rf"\\n-- Using Vision Config Service to {title} --\\n"
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Vision module found, device Id: \d+\\n"
+        r"\\n\\n\*\* Example showing how to retrieve the intrinsic parameters "
+        r"of the Color and Depth sensors \*\*\\n"
+        + get_block("get intrinsic parameters of active color resolution")
+        + get_block("get intrinsic parameters of active depth resolution")
+        + get_block(f"get intrinsic parameters for color resolution {resolution}")
+        + get_block(f"get intrinsic parameters for depth resolution {resolution}")
+        + r"\\n\\n\*\* Example showing how to set the intrinsic parameters of "
+        r"the Color and Depth sensors \*\*\\n"
+        + "".join(
+            get_block(
+                f"get current intrinsic parameters for {sensor} "
+                f"resolution {resolution}"
+            )
+            + set_line(
+                f"set new intrinsic parameters for {sensor} "
+                f"resolution {resolution}"
+            )
+            + get_block(
+                f"get new intrinsic parameters for {sensor} "
+                f"resolution {resolution}"
+            )
+            + set_line(
+                f"set back old intrinsic parameters for {sensor} "
+                f"resolution {resolution}"
+            )
+            for sensor in ("color", "depth")
+        )
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called vision extrinsics output is valid")
+def assert_output_of_vision_extrinsics(results_tracker, execution_context):
+    """Assert the output of the vision extrinsics example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+\.\d+"
+    row = rf"{number}(?: +{number}){{2}}"
+
+    # The example prints a blank line before each title
+    def get_block(title: str) -> str:
+        """Title line, then the rotation matrix and translation vector."""
+        return (
+            rf"\\n-- Using Vision Config Service to {title} --\\n"
+            r"Rotation matrix:\\n"
+            # The matrix is printed on 3 lines, each number being padded
+            rf"\[ *{row}\\n"
+            rf" +{row}\\n"
+            rf" +{row}\]\\n"
+            rf"Translation vector: \[{number}(?: {number}){{2}}\]\\n"
+        )
+
+    def set_line(title: str) -> str:
+        """Title line of a set request (no parameters are printed)."""
+        return rf"\\n-- Using Vision Config Service to {title} --\\n"
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        r"Vision module found, device Id: \d+\\n"
+        r"\\n\\n\*\* Example showing how to retrieve the extrinsic parameters "
+        r"\*\*\\n"
+        + get_block("get the extrinsic parameters")
+        + r"\\n\\n\*\* Example showing how to set the extrinsic parameters "
+        r"\*\*\\n"
+        + get_block("get current extrinsic parameters")
+        + set_line("set new extrinsic parameters")
+        + get_block("get new extrinsic parameters")
+        + set_line("set back old extrinsic parameters")
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called vision sensor focus action output is valid")
+def assert_output_of_vision_sensor_focus_action(
+    results_tracker, execution_context
+):
+    """Assert the output of the vision sensor focus action example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    wait = (
+        r"-- Waiting for 10 seconds to observe the effects of the focus "
+        r"action\.\.\. --"
+    )
+
+    def action(title: str, hint: str) -> str:
+        """A focus action: blank line, title, what to observe, then the wait."""
+        return (
+            r"\\n-- Using Vision Config Service to " + re.escape(title)
+            # The space before the final dashes is missing in one title
+            + r" ?--\\n"
+            + re.escape(f"-- {hint} --") + r"\\n"
+            + wait + r"\\n"
+        )
+
+    def example(title: str) -> str:
+        """Title of an example, preceded by two blank lines."""
+        return rf"\\n\\n\*\* Example showing how to {re.escape(title)} \*\*\\n"
+
+    # Usage banner: blank line, framed text (tab indented), blank line
+    border = r"\\t#{86}\\n"
+    banner_lines = [
+        "To use these examples:",
+        " - Connect to the robot's web page",
+        " - Configure the Vision Color Sensor to 1280x720 resolution",
+        " - Position the robot so you can easily place objects in front of "
+        "the Color camera",
+        " - Select the Camera view page",
+    ]
+    banner = (
+        r"\\n"
+        + border
+        + "".join(
+            r"\\t# *" + re.escape(line.strip()) + r" *#\\n"
+            for line in banner_lines
+        )
+        + border
+        + r"\\n"
+    )
+
+    # (title of the action, what the user is asked to observe)
+    auto_focus = [
+        ("disable the auto-focus",
+         "Place or remove an object from the center of the camera, "
+         "observe the focus doesn't change"),
+        ("enable the auto-focus",
+         "Place an object in the center of the camera, "
+         "observe the focus adjusts automatically"),
+        ("pause the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus doesn't change"),
+        ("focus now",
+         "Observe the focus tried to adjust to the object in front to the "
+         "camera"),
+        ("re-enable the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus adjusts "
+         "automatically"),
+    ]
+    focus_point = [
+        ("set the focus point in the center of the lower right quadrant of "
+         "the camera image",
+         "Place an object in the center of the lower right quadrant of the "
+         "camera image, observe the object gets into focus"),
+        ("set the focus point back in the middle the camera image",
+         "Place an object in the center of the camera image, "
+         "observe the object gets into focus"),
+    ]
+    manual_focus = [
+        ("set the manual focus on a very close object (close-up view)",
+         "Place an object at around 2 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("set the manual focus on an object at a greater distance",
+         "Move the object away from the camera until it gets into focus"),
+        ("set the manual focus on a relatively close object (normal view)",
+         "Move the object at around 8 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("re-enable the auto-focus",
+         "Move the object away from the camera and then back, but at a "
+         "different distance, observe the focus adjusts automatically"),
+    ]
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        + banner
+        + r"Vision module found, device Id: \d+\\n"
+        + example("play with the auto-focus of the Color camera")
+        + "".join(action(*step) for step in auto_focus)
+        + example(
+            "set the focus of the Color camera to a X-Y point in the camera "
+            "image"
+        )
+        + "".join(action(*step) for step in focus_point)
+        + example(
+            "set the manual focus of the Color camera (changes the focus "
+            "distance)"
+        )
+        + "".join(action(*step) for step in manual_focus)
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+
+@then("the C++ Kortex API send called vision sensor options output is valid")
+def assert_output_of_vision_sensor_options(results_tracker, execution_context):
+    """Assert the output of the vision sensor options example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    wait = (
+        r"-- Waiting for 10 seconds to observe the effects of the focus "
+        r"action\.\.\. --"
+    )
+
+    def action(title: str, hint: str) -> str:
+        """A focus action: blank line, title, what to observe, then the wait."""
+        return (
+            r"\\n-- Using Vision Config Service to " + re.escape(title)
+            # The space before the final dashes is missing in one title
+            + r" ?--\\n"
+            + re.escape(f"-- {hint} --") + r"\\n"
+            + wait + r"\\n"
+        )
+
+    def example(title: str) -> str:
+        """Title of an example, preceded by two blank lines."""
+        return rf"\\n\\n\*\* Example showing how to {re.escape(title)} \*\*\\n"
+
+    # Usage banner: blank line, framed text (tab indented), blank line
+    border = r"\\t#{86}\\n"
+    banner_lines = [
+        "To use these examples:",
+        " - Connect to the robot's web page",
+        " - Configure the Vision Color Sensor to 1280x720 resolution",
+        " - Position the robot so you can easily place objects in front of "
+        "the Color camera",
+        " - Select the Camera view page",
+    ]
+    banner = (
+        r"\\n"
+        + border
+        + "".join(
+            r"\\t# *" + re.escape(line.strip()) + r" *#\\n"
+            for line in banner_lines
+        )
+        + border
+        + r"\\n"
+    )
+
+    # (title of the action, what the user is asked to observe)
+    auto_focus = [
+        ("disable the auto-focus",
+         "Place or remove an object from the center of the camera, "
+         "observe the focus doesn't change"),
+        ("enable the auto-focus",
+         "Place an object in the center of the camera, "
+         "observe the focus adjusts automatically"),
+        ("pause the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus doesn't change"),
+        ("focus now",
+         "Observe the focus tried to adjust to the object in front to the "
+         "camera"),
+        ("re-enable the auto-focus",
+         "Move the object away from the center of the camera and then back, "
+         "but at a different distance, observe the focus adjusts "
+         "automatically"),
+    ]
+    focus_point = [
+        ("set the focus point in the center of the lower right quadrant of "
+         "the camera image",
+         "Place an object in the center of the lower right quadrant of the "
+         "camera image, observe the object gets into focus"),
+        ("set the focus point back in the middle the camera image",
+         "Place an object in the center of the camera image, "
+         "observe the object gets into focus"),
+    ]
+    manual_focus = [
+        ("set the manual focus on a very close object (close-up view)",
+         "Place an object at around 2 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("set the manual focus on an object at a greater distance",
+         "Move the object away from the camera until it gets into focus"),
+        ("set the manual focus on a relatively close object (normal view)",
+         "Move the object at around 8 inches away from the center of the "
+         "camera, observe the object is in focus"),
+        ("re-enable the auto-focus",
+         "Move the object away from the camera and then back, but at a "
+         "different distance, observe the focus adjusts automatically"),
+    ]
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        + banner
+        + r"Vision module found, device Id: \d+\\n"
+        + example("play with the auto-focus of the Color camera")
+        + "".join(action(*step) for step in auto_focus)
+        + example(
+            "set the focus of the Color camera to a X-Y point in the camera "
+            "image"
+        )
+        + "".join(action(*step) for step in focus_point)
+        + example(
+            "set the manual focus of the Color camera (changes the focus "
+            "distance)"
+        )
+        + "".join(action(*step) for step in manual_focus)
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
+
+@then("the C++ Kortex API send called vision sensor options output is valid")
+def assert_output_of_vision_sensor_options(results_tracker, execution_context):
+    """Assert the output of the vision sensor options example.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    number = r"-?\d+\.\d+"
+    option = r"OPTION_\w+"
+
+    # The example prints a blank line before each title (and some extra ones)
+    def title(text: str) -> str:
+        """Title line, preceded by a blank line."""
+        return r"\\n-- " + re.escape(text) + r" --\\n"
+
+    def example(text: str) -> str:
+        """Title of an example, preceded by a blank line."""
+        return r"\\n\*\* " + re.escape(text) + r" \*\*\\n"
+
+    def vision(text: str) -> str:
+        return title(f"Using Vision Config Service to {text}")
+
+    # Usage banner: blank line, framed text (tab indented), blank line
+    border = r"\\t#{86}\\n"
+    banner_lines = [
+        "To use these examples:",
+        " - Connect to the robot's web page",
+        " - Select the Camera view page",
+        " - Observe the effects of changing the Color sensor options",
+    ]
+    banner = (
+        r"\\n"
+        + border
+        + "".join(
+            r"\\t# *" + re.escape(line.strip()) + r" *#\\n"
+            for line in banner_lines
+        )
+        + border
+        + r"\\n"
+    )
+
+    information = (
+        rf"(?:Option id: \d+  name: {option}  is_writable: (?:true|false)\\n"
+        rf"minimum: {number}  maximum: {number}\\n"
+        rf"   step: {number}  default: {number}\\n\\n)+"
+    )
+    values = rf"(?:Option '{option}' has value {number}\\n)+"
+    set_values = rf"(?:Set value \({number}\) for option '{option}'\\n)+"
+    confirm_line = (
+        rf"Confirm received value \({number}\) for option '{option}' "
+        r"--> OK\\n"
+    )
+    confirm_values = rf"(?:{confirm_line})+"
+    # After the reboot of the Vision module, the example reports the options
+    # it could not read back. The device sometimes times out when reading the
+    # depth options (known behaviour, on any of them). A timeout is accepted
+    # here, but a wrong value read back is not.
+    option_not_read = (
+        rf"Failed to get value for option '{option}': "
+        r"timeout detected: [\w:]+\\n\\n"
+    )
+    restored_values = rf"(?:{confirm_line}|{option_not_read})+"
+
+    def set_and_confirm(value: str, sensor: str):
+        return (
+            vision(f"set {value} value for all {sensor} sensor options")
+            + set_values
+            + vision(
+                f"confirm {value} value was set for all {sensor} sensor "
+                "options"
+            )
+            + confirm_values
+        )
+
+    wait_color = title(
+        "Waiting for 5 seconds to observe the effects of the new COLOR "
+        "sensor options values..."
+    )
+
+    pattern = (
+        r"Creating session for communication\\n"
+        r"Session created\\n"
+        + banner
+        + r"Vision module found, device Id: \d+\\n"
+        # Options information
+        + example("Example showing how to get the sensors options information")
+        + "".join(
+            vision(f"get information for all {sensor} sensor options")
+            + information
+            for sensor in ("COLOR", "DEPTH")
+        )
+        # Options values
+        + example("Example showing how to get the sensors options values")
+        + "".join(
+            vision(f"get value for all {sensor} sensor options")
+            + values
+            + r"\\n"
+            for sensor in ("COLOR", "DEPTH")
+        )
+        # Set the max, then the default value
+        + example("Example showing how to set the sensors options values")
+        + "".join(
+            set_and_confirm(value, "COLOR")
+            + wait_color
+            + set_and_confirm(value, "DEPTH")
+            + r"\\n"
+            for value in ("max", "default")
+        )
+        # Values restored upon a reboot of the Vision module
+        + example(
+            "Example confirming that sensors options values are restored "
+            "upon a reboot of the Vision module"
+        )
+        + set_and_confirm("min", "COLOR")
+        + set_and_confirm("min", "DEPTH")
+        + r"\\n-- Using Device Config Service to reboot the Vision module in "
+        r"\d+ milliseconds\. Please wait\.\.\. --\\n"
+        + vision(
+            "confirm min value was restored after reboot for all COLOR "
+            "sensor options"
+        )
+        + confirm_values
+        + vision(
+            "confirm min value was restored after reboot for all DEPTH "
+            "sensor options"
+        )
+        + restored_values
+        + set_and_confirm("default", "COLOR")
+        + set_and_confirm("default", "DEPTH")
+    )
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = True
+    results_tracker[0]["actual"] = bool(
+        search_output(pattern, execution_context)
+    )
