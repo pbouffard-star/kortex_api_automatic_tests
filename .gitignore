@@ -2,7 +2,7 @@
 .vscode/settings.json
 
 # Firmware
-.swu
+*.swu
 
 # Kortex wheel
 kortex/API/*/*
