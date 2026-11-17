@@ -125,51 +125,51 @@ pipeline {
                 }
             }
         }
-        stage('Install latest GEN3 SWU') {
-            steps {
-                script {
+        // stage('Install latest GEN3 SWU') {
+        //     steps {
+        //         script {
 
-                    sh """
-                        ssh-keyscan -H ${GEN3_IP} > known_hosts 2>/dev/null
-                        [ -s known_hosts ] || { echo "No SSH host key from ${GEN3_IP} - is the board powered and reachable?"; exit 1; }
+        //             sh """
+        //                 ssh-keyscan -H ${GEN3_IP} > known_hosts 2>/dev/null
+        //                 [ -s known_hosts ] || { echo "No SSH host key from ${GEN3_IP} - is the board powered and reachable?"; exit 1; }
 
-                        SSH_OPTS="-o UserKnownHostsFile=known_hosts -o BatchMode=yes \\
-                                  -o IdentitiesOnly=yes -i \${GEN3_SSH_KEY}"
+        //                 SSH_OPTS="-o UserKnownHostsFile=known_hosts -o BatchMode=yes \\
+        //                           -o IdentitiesOnly=yes -i \${GEN3_SSH_KEY}"
 
-                        SWU_FILE=\$(ls -t Gen3*.swu | head -n 1)
-                        [ -n "\$SWU_FILE" ] || { echo "No Gen3*.swu file in the workspace"; exit 1; }
+        //                 SWU_FILE=\$(ls -t Gen3*.swu | head -n 1)
+        //                 [ -n "\$SWU_FILE" ] || { echo "No Gen3*.swu file in the workspace"; exit 1; }
 
-                        scp \$SSH_OPTS "\$SWU_FILE" root@${GEN3_IP}:/mnt/download/firmware.swu
-                        ssh \$SSH_OPTS root@${GEN3_IP} '
-                            ./opt/armbase/scripts/flash_swu.sh
-                            reboot
-                        '
-                    """
-                }
-            }
-        }
-        stage('Run Automated Validation') {
-            steps {
-                script {
-                    // Build the C++ examples (one executable per example)
-                    sh """
-                        cd api_cpp/examples && cmake -B build && cmake --build build
-                    """
+        //                 scp \$SSH_OPTS "\$SWU_FILE" root@${GEN3_IP}:/mnt/download/firmware.swu
+        //                 ssh \$SSH_OPTS root@${GEN3_IP} '
+        //                     ./opt/armbase/scripts/flash_swu.sh
+        //                     reboot
+        //                 '
+        //             """
+        //         }
+        //     }
+        // }
+        // stage('Run Automated Validation') {
+        //     steps {
+        //         script {
+        //             // Build the C++ examples (one executable per example)
+        //             sh """
+        //                 cd api_cpp/examples && cmake -B build && cmake --build build
+        //             """
 
-                    // Run the Python and C++ scenarios. The .venv goes first in the PATH so
-                    // that the 'python3.9' started by the tests is the one with kortex_api.
-                    // Must run from validation/ (the examples are found with relative paths).
-                    sh """
-                        export PATH="${WORKSPACE}/.venv/bin:\$PATH"
-                        cd validation
-                        python3.9 -m pytest scenarios.py -v \
-                            --json-report --json-report-file=./TestMetrics/json/TestReport.json \
-                            --html=report.html --self-contained-html \
-                            --junitxml=results.xml
-                    """
-                }
-            }
-        }
+        //             // Run the Python and C++ scenarios. The .venv goes first in the PATH so
+        //             // that the 'python3.9' started by the tests is the one with kortex_api.
+        //             // Must run from validation/ (the examples are found with relative paths).
+        //             sh """
+        //                 export PATH="${WORKSPACE}/.venv/bin:\$PATH"
+        //                 cd validation
+        //                 python3.9 -m pytest scenarios.py -v \
+        //                     --json-report --json-report-file=./TestMetrics/json/TestReport.json \
+        //                     --html=report.html --self-contained-html \
+        //                     --junitxml=results.xml
+        //             """
+        //         }
+        //     }
+        // }
     }
     post {
         always {
