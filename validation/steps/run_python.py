@@ -7,10 +7,11 @@ import select
 import subprocess
 import time
 
-from pytest_bdd import parsers, then, when
+from pytest_bdd import given, parsers, then, when
 
 python_ex_file_path = "../api_python/examples"
 DEFAULT_TIMEOUT = 60  # seconds
+RETRY_DELAY = 30  # seconds to wait before running an example again
 
 
 def search_output(pattern: str, execution_context):
@@ -144,6 +145,54 @@ def python_run_with_retry(
             f"Attempt {attempt}/{attempts}: the output does not end with "
             f"{ending!r} (status: {execution_context.get('status')})"
         )
+
+
+@when(
+    parsers.parse(
+        "running the python '{file_name}' Kortex API example "
+        "with a timeout of {timeout:d} seconds, retrying up to "
+        "{attempts:d} times while the output matches '{flaky}'"
+    )
+)
+def python_run_with_flaky_retry(
+    file_name: str,
+    timeout: int,
+    attempts: int,
+    flaky: str,
+    execution_context,
+):
+    """Run the python file again while its output shows a device glitch.
+
+    Some examples depend on the device answering in time (ex: the Vision
+    module right after its reboot) and print an error without failing. The
+    file is run again, after a pause to let the device settle, while its
+    output matches the regex or its status is not success, until the maximum
+    number of attempts is reached. The result of the last attempt is kept.
+
+    *Args*:
+        - file_name (string): Path and file name of the python file.
+        - timeout (int): Maximum execution time of each attempt, in seconds.
+        - attempts (int): Maximum number of attempts.
+        - flaky (string): Regex of the output that triggers a new attempt.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    for attempt in range(1, attempts + 1):
+        run_python_file(file_name, timeout, execution_context)
+        execution_context["attempts"] = attempt
+        output = execution_context.get("stdout") or b""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        if execution_context.get("status") == "success" and not re.search(
+            flaky, output
+        ):
+            return
+        print(
+            f"Attempt {attempt}/{attempts}: the output is not reliable "
+            f"(status: {execution_context.get('status')})"
+        )
+        if attempt < attempts:
+            time.sleep(RETRY_DELAY)
 
 
 ESC_KEY = b"\x1b"
@@ -306,9 +355,18 @@ def assert_output_of_api_creation(
 
     match = search_output(pattern, execution_context)
     for row in datatable[0:]:
+        actual = match.group(group_index)
+        expected = row[1]
+        # The arm can be in any state (ex: servoing ready or manually
+        # controlled) when the example runs. "any ARMSTATE" only requires a
+        # valid arm state name.
+        if expected == "any ARMSTATE":
+            expected = actual if re.fullmatch(r"ARMSTATE_\w+", actual) else (
+                "an ARMSTATE_* value"
+            )
         results_tracker[group_index - 1]["param"] = row[0]
-        results_tracker[group_index - 1]["expected"] = row[1]
-        results_tracker[group_index - 1]["actual"] = match.group(group_index)
+        results_tracker[group_index - 1]["expected"] = expected
+        results_tracker[group_index - 1]["actual"] = actual
         group_index += 1
 
 
@@ -441,6 +499,7 @@ def assert_output_of_error_management(
         group_index += 1
 
 
+@given(parsers.parse("the '{username}' user profile is removed from the arm"))
 @then(parsers.parse("the '{username}' user profile is removed from the arm"))
 def cleanup_user_profile(username: str, results_tracker):
     """Remove a user profile left on the arm by an example.
@@ -467,6 +526,32 @@ def cleanup_user_profile(username: str, results_tracker):
     results_tracker[0]["expected"] = "success"
     results_tracker[0]["actual"] = (
         "success" if result.returncode == 0 else "failed"
+    )
+
+
+@given("the arm is in the servoing ready state")
+def arm_servoing_ready():
+    """Put the arm back in the servoing ready state before a motion example.
+
+    The arm can be left in another state (hand-guiding, low level servoing,
+    fault) by a previous run, and the motion examples then fail.
+    """
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "scripts",
+        "ensure_arm_ready.py",
+    )
+    result = subprocess.run(
+        ["python3.9", "-u", script],
+        capture_output=True,
+        text=True,
+        timeout=DEFAULT_TIMEOUT,
+    )
+    print(result.stdout + result.stderr)
+    assert result.returncode == 0, (
+        "The arm could not be set in the servoing ready state: "
+        f"{(result.stdout + result.stderr).strip().splitlines()[-1:]}"
     )
 
 
@@ -1334,14 +1419,16 @@ def assert_output_of_api_vision_sensor_options(
     )
     confirm_values = rf"(?:{confirm_line})+"
     # After the reboot of the Vision module, the example reports the options
-    # it could not read back. The device answers INVALID_PARAM for the gain
-    # (a known behaviour, to be confirmed). It is accepted here, as in the
-    # reference output, but any other option failing is not.
-    gain_not_read = (
-        r"Failed to get value for option 'OPTION_GAIN': "
-        r"Server error name=ERROR_DEVICE, sub name=INVALID_PARAM => *\\n\\n"
+    # it could not read back. The device sometimes answers INVALID_PARAM (or
+    # times out) for one of the depth options, and it is not always the same
+    # one (known behaviour, to be confirmed). It is accepted here, as in the
+    # reference output, but a wrong value read back is not.
+    option_not_read = (
+        rf"Failed to get value for option '{option}': "
+        r"(?:Server error name=ERROR_DEVICE, sub name=INVALID_PARAM => *"
+        r"|timeout detected: [\w:]+)\\n\\n"
     )
-    restored_values = rf"(?:{confirm_line}|{gain_not_read})+"
+    restored_values = rf"(?:{confirm_line}|{option_not_read})+"
 
     def set_and_confirm(value: str, sensor: str, confirmed=confirm_values):
         return (

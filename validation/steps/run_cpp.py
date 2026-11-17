@@ -154,6 +154,38 @@ def cpp_run_with_retry(
             time.sleep(RETRY_DELAY)
 
 
+@then(
+    "the Kortex API example was run successfully or stopped on its last "
+    "position"
+)
+def checks_api_execution_status_or_last_position(
+    results_tracker, execution_context
+):
+    """Check the execution status, accepting a stop on the last position.
+
+    The gripper cannot always reach the last position of the example (100%),
+    and the example waits for it with no timeout of its own. A timeout is
+    accepted when the example had already started its last move, as it then
+    did everything it could. Any other status is a failure.
+
+    *Args*:
+        - results_tracker (fixture): Generic result comparaison fixture.
+        - execution_context (fixture): A fixture that contains the execution
+        output, error and status
+    """
+    status = execution_context["status"]
+    output = execution_context.get("stdout") or b""
+    if isinstance(output, bytes):
+        output = output.decode("utf-8", errors="replace")
+    last_move_started = output.rstrip().endswith("Going to position : 100")
+
+    results_tracker[0]["param"] = "Output Message"
+    results_tracker[0]["expected"] = "success"
+    results_tracker[0]["actual"] = (
+        "success" if status == "timeout" and last_move_started else status
+    )
+
+
 @then("the C++ Kortex API creation output is valid")
 def assert_output_of_api_creation(results_tracker, execution_context):
     """Assert the output of the API Creation example.

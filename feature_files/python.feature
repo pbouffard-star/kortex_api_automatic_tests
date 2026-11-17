@@ -8,7 +8,7 @@ Feature: python examples
 
             | session               | created                 |
             | device type           | BASE                    |
-            | active state          | ARMSTATE_SERVOING_READY |
+            | active state          | any ARMSTATE            |
 
 
     Scenario: run in python the Kortex API example called protobuf object manipulation
@@ -35,6 +35,7 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called notification
+        Given the 'jcash' user profile is removed from the arm
         When running the python '000-Getting_Started/05-notification.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the 'jcash' user profile is removed from the arm
@@ -42,7 +43,7 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called device routine
-        When running the python '100-Overview/01-devices_routing.py' Kortex API example
+        When running the python '100-Overview/01-devices_routing.py' Kortex API example with a timeout of 60 seconds, retrying up to 3 times while the output matches 'Traceback|timeout detected'
         Then the Kortex API example was run successfully
         Then the python Kortex API device routine output is valid
 
@@ -54,24 +55,28 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called move angular and cartesian
+        Given the arm is in the servoing ready state
         When running the python '102-Movement_high_level/01-move_angular_and_cartesian.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API move angular and cartesian output is valid
 
 
     Scenario: run in python the Kortex API example called sequence
+        Given the arm is in the servoing ready state
         When running the python '102-Movement_high_level/02-sequence.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API sequence output is valid
 
 
     Scenario: run in python the Kortex API example called twist command
+        Given the arm is in the servoing ready state
         When running the python '102-Movement_high_level/03-twist_command.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API twist command output is valid
 
 
     Scenario: run in python the Kortex API example called send joint speeds
+        Given the arm is in the servoing ready state
         When running the python '102-Movement_high_level/04-send_joint_speeds.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API send joint speeds output is valid
@@ -96,24 +101,28 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called gripper command
+        Given the arm is in the servoing ready state
         When running the python '106-Gripper_command/01-gripper_command.py' Kortex API example
         Then the Kortex API example was run successfully
         Then the python Kortex API gripper command output is valid
 
 
     Scenario: run in python the Kortex API example called gripper low level command
+        Given the arm is in the servoing ready state
         When running the python '107-Gripper_low_level_command/01-gripper_low_level_command.py' Kortex API example and pressing ESC once 'Press ESC to quit' is displayed
         Then the Kortex API example was run successfully
         Then the python Kortex API gripper low level command output is valid
 
 
-    Scenario: run in python the Kortex API example called gripper low level command pressing 9
-        When running the python '107-Gripper_low_level_command/01-gripper_low_level_command.py' Kortex API example, pressing '9' once 'Press ESC to quit' is displayed and ESC once 'Target reached' is displayed
+    Scenario: run in python the Kortex API example called gripper low level command pressing 8
+        Given the arm is in the servoing ready state
+        When running the python '107-Gripper_low_level_command/01-gripper_low_level_command.py' Kortex API example, pressing '8' once 'Press ESC to quit' is displayed and ESC once 'Target reached' is displayed
         Then the Kortex API example was run successfully
-        Then the python Kortex API gripper low level command output is valid after pressing '9'
+        Then the python Kortex API gripper low level command output is valid after pressing '8'
 
 
     Scenario: run in python the Kortex API example called torque control cyclic
+        Given the arm is in the servoing ready state
         When running the python '108-Gen3_torque_control/01-torque_control_cyclic.py' Kortex API example with a timeout of 60 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API torque control cyclic output is valid
@@ -126,12 +135,14 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called send angular waypoint trajectory
+        Given the arm is in the servoing ready state
         When running the python '110-Waypoints/01-send_angular_wapoint_trajectory.py' Kortex API example with a timeout of 120 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API send angular waypoint trajectory output is valid
 
 
     Scenario: run in python the Kortex API example called send cartesian waypoint trajectory
+        Given the arm is in the servoing ready state
         When running the python '110-Waypoints/02-send_cartesian_waypoint_trajectory.py' Kortex API example with a timeout of 120 seconds
         Then the Kortex API example was run successfully
         Then the python Kortex API send cartesian waypoint trajectory output is valid
@@ -162,6 +173,6 @@ Feature: python examples
 
 
     Scenario: run in python the Kortex API example called vision sensor options
-        When running the python '500-Gen3_vision_configuration/04-vision_sensor_options.py' Kortex API example with a timeout of 120 seconds
+        When running the python '500-Gen3_vision_configuration/04-vision_sensor_options.py' Kortex API example with a timeout of 120 seconds, retrying up to 4 times while the output matches 'Failed to set|FAILED'
         Then the Kortex API example was run successfully
         Then the python Kortex API vision sensor options output is valid

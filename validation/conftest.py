@@ -4,7 +4,9 @@
 import logging
 import os
 import re
+import subprocess
 import sys
+import time
 from datetime import datetime
 
 import pytest
@@ -35,6 +37,46 @@ class TrackerList(list):
         while len(self) <= index:
             self.append(self._template.copy())
         return super().__getitem__(index)
+
+
+HEALTH_SCRIPT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "scripts", "check_arm_health.py"
+)
+HEALTH_CACHE_SECONDS = 60
+_last_healthy = 0.0
+
+
+@pytest.fixture(autouse=True)
+def arm_health_check():
+    """Fail the scenario right away when a device of the arm does not answer.
+
+    Without it, an unresponsive device (ex: the Vision module after its
+    reboot) makes the examples crash or time out, and the failure only shows
+    as a pattern mismatch. A successful check is reused for a short time to
+    keep the run fast.
+    """
+    global _last_healthy
+    if time.monotonic() - _last_healthy < HEALTH_CACHE_SECONDS:
+        return
+    try:
+        result = subprocess.run(
+            ["python3.9", HEALTH_SCRIPT],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        healthy = result.returncode == 0
+        details = (result.stdout + result.stderr).strip().splitlines()
+        details = details[-1] if details else "no output"
+    except subprocess.TimeoutExpired:
+        healthy, details = False, "health check timed out"
+    if not healthy:
+        pytest.fail(
+            "The arm is not healthy, power-cycle it or reboot the device. "
+            f"{details}",
+            pytrace=False,
+        )
+    _last_healthy = time.monotonic()
 
 
 @pytest.fixture
