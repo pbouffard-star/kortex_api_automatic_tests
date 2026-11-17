@@ -183,8 +183,8 @@ pipeline {
                 }
             }
 
-            // Graphic display
-            junit testResults: 'validation/results.xml', skipPublishingChecks: true, skipMarkingBuildUnstable: true
+            // // Graphic display
+            // junit testResults: 'validation/results.xml', skipPublishingChecks: true, skipMarkingBuildUnstable: true
 
         }
         success {
